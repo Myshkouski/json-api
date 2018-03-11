@@ -1,0 +1,163 @@
+# NOTE 1
+# Additional root members should be removed from this schema and defined as optional
+#
+# NOTE 2
+# Exception:                The id member is not required when the resource object originates
+# at the client and represents a new resource to be created on the server
+# (NOTE 1 should be implemented).
+#
+#
+
+%YAML 1.2
+---
+  $id:                      '/'
+  $async:                   true
+  allOf:
+  - anyOf:
+    - required:
+      - data
+    - required:
+      - errors
+    - required:
+      - meta
+    errorMessage:           >-
+      A document MUST contain
+      at least one of the following top-level members:
+      'data', 'errors', 'meta'
+  - not:
+      required:
+      - errors
+      - data
+    errorMessage:           >-
+      The members data and errors MUST NOT
+      coexist in the same document
+  - not:
+      allOf:
+      - not:
+          required:
+          - data
+      - required:
+        - included
+    errorMessage:           >-
+      If a document does not
+      contain a top-level 'data' key,
+      the 'included' member MUST NOT be present either
+  - type:                   object
+    properties:
+      data:
+        $ref:               /data
+      errors:
+        $ref:               /errors
+      meta:
+        $ref:               /meta
+      links:
+        $ref:               /links
+      included:
+        $ref:               /included
+      jsonapi:
+        type:               object
+    # see NOTE 1
+    additionalProperties:   false
+    errorMessage:
+      type:                 >-
+        A JSON object MUST be
+        at the root of every JSON API
+        request and response containing data
+      # see NOTE 1
+      additionalProperties: >-
+        Unless otherwise noted, objects defined
+        by this specification MUST NOT contain
+        any additional members
+---
+  $id:                      /data
+  oneOf:
+  -	$ref:                   /resource
+  -	$ref:                   /included
+  - type:                   'null'
+  errorMessage:             >-
+    Primary data MUST be either a single resource object,
+    or a single resource identifier object,
+    or null, for requests that target single resources,
+    or an array of resource objects,
+    or an array of resource identifier objects,
+    or an empty array for requests that target resource collections
+---
+  $id:                      /errors
+  type:                     array
+  items:
+    $ref:                   /error
+  errorMessage:
+    type:                   >-
+      Error objects MUST be returned as an array
+      keyed by errors in the top level of a JSON API document
+---
+  $id:                      /links
+  type:                     object
+  patternProperties:
+    ^.*:
+      $ref:                 '/link'
+  additionalProperties:     false
+  errorMessage:
+    type:                   >-
+      The value of each 'links' member MUST be an object
+---
+  $id:                      /included
+  type:                     array
+  items:
+    $ref:                   /resource
+---
+  $id:                      /resource
+  type:                     object
+  properties:
+    id:
+      type:                 string
+      errorMessage:         >-
+        The values of the 'id' member MUST be strings
+    type:
+      type:                 string
+      errorMessage:         >-
+        The values of the 'type' member MUST be strings
+    meta:
+      $ref:                 /meta
+    attributes:
+      type:                 object
+    relationships:
+      type:                 array
+      items:
+        $ref:               /resource
+    links:
+      $ref:                 /links
+  required:
+  # see NOTE 2
+  - id
+  - type
+  additionalProperties:     false
+  errorMessage:
+    required:               >-
+      Every resource object MUST contain
+      an 'id' member and a 'type' member
+---
+  $id:                      /error
+  type:                     object
+---
+  $id:                      /meta
+  type:                     object
+---
+  $id:                      /link
+  oneOf:
+  - type:
+    - string
+  - type:
+    - object
+    properties:
+      href:
+        type:               string
+        errorMessage:       >-
+          Member 'href' should be a string containing the link’s URL.
+      meta:
+        $ref:               /meta
+    additionalProperties:   false
+  errorMessage:             >-
+      A 'link' MUST be represented either
+      a string containing the link’s URL,
+      or an object which can contain the 'href' and 'meta' members
