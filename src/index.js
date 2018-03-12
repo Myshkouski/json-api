@@ -72,9 +72,7 @@ class JsonApi {
     return Object.keys(schemas).reduce((array, key, index) => {
       const schema = {}
 
-      throw new Error('test')
-
-      if(asdasdadsasd == 'index') {
+      if(options.id == 'index') {
         schema.id = index
       } else {
         schema.id = schemas[key][options.id]
