@@ -1,14 +1,5 @@
-export default error => {
-  const {
-    message,
-    params,
-    dataPath
-  } = error
-
-  return {
-    detail: message,
-    meta: {
-      dataPath
-    }
-  }
-}
+export default error => ({
+  message: error.message,
+  path: error.dataPath,
+  schema: error.parentSchema.$id
+})
