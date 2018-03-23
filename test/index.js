@@ -17,7 +17,7 @@ describe('Module', () => {
 describe('Static Methods', () => {
   let validDocument, invalidDocumentStructure
   beforeEach(() => {
-    validBody = {
+    validDocument = {
       data: {
         id: '0',
         type: 'test'
@@ -31,14 +31,28 @@ describe('Static Methods', () => {
   })
 
   describe('#validate', () => {
-    it('should return resolved promise', async () => {
+    it('should return promise', async () => {
       const p = JsonApi.validate(validDocument)
 
       assert.ok(p instanceof Promise)
+
+      try {
+        await p
+      } catch(error) {}
     })
 
-    it('should return resolved promise', async () => {
+    it('should return resolved promise for valid document', async () => {
       await JsonApi.validate(validDocument)
+    })
+
+    it('should return rejected promise for invalid document', async () => {
+      try {
+        await JsonApi.validate(invalidDocumentStructure)
+      } catch(error) {
+        return
+      }
+
+      throw 1
     })
   })
 
