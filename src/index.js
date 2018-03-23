@@ -1,5 +1,5 @@
 import jsonPatch from 'json8-patch'
-import defaults from 'lodash.defaultsdeep'
+import defaults from 'lodash/defaultsDeep'
 import { validate, getSchemas as _getSchemas } from './validate'
 import mapValidationErrors from './mapValidationErrors'
 
@@ -21,12 +21,24 @@ class JsonApi {
     }
   }
 
+  static get(doc, path) {
+    return jsonPatch.get(doc, path)
+  }
+
+  static has(doc, path) {
+    return jsonPatch.has(doc, path)
+  }
+
   static async patch(body, ops, options = {}) {
+    options = defaults({}, options, {
+      reversible: false
+    })
+
     let res
 
     try {
       try {
-        res = jsonPatch.apply(body, ops, Object.assign({}, options, { reversible: true }))
+        res = jsonPatch.apply(body, ops, options)
       } catch(error) {
         error.detail = `Cannot apply JSON patch`
 
@@ -43,9 +55,12 @@ class JsonApi {
         }
       }
     } catch(error) {
-      const reverted = jsonPatch.revert(body, res.revert).doc
+      if(options.reversible) {
+        const reverted = jsonPatch.revert(body, res.revert).doc
 
-      error.doc = reverted
+        error.doc = reverted
+      }
+
       error.ops = ops
 
       throw error
@@ -108,6 +123,14 @@ class JsonApi {
     } else {
       this.options.validatePatch = false
     }
+  }
+
+  "get"(path) {
+    return JsonApi.get(this.body, path)
+  }
+
+  has(path) {
+    return JsonApi.has(this.body, path)
   }
 
   async validate() {
