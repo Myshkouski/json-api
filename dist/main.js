@@ -1315,4 +1315,4 @@ module.exports = require("lodash/get");
 /***/ })
 
 /******/ });
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=main.js.map
