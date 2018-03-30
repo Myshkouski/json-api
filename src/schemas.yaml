@@ -6,9 +6,33 @@
 # at the client and represents a new resource to be created on the server
 # (NOTE 1 should be implemented).
 #
+# NOTE 3
+# use 'dependencies' keyword instead!
 #
 
 %YAML 1.2
+---
+  $id:                      /patch/document
+  properties:
+    testPropsDefault:
+      default:              test
+    decoded:
+      type:                 array
+  required:
+  - decoded
+  - doc
+  oneOf:
+  - properties:
+      testOneOfDefault:
+        default:              test
+      decoded:
+        items:
+        - const:          data
+        - pattern:        ^((-)|([0-9])|([1-9][0-9]+))$
+      doc:
+        properties:
+          data:
+            default:      []
 ---
   $id:                      '/'
   $async:                   true
@@ -31,6 +55,7 @@
     errorMessage:           >-
       The members data and errors MUST NOT
       coexist in the same document
+  # see NOTE 3
   - not:
       allOf:
       - not:
