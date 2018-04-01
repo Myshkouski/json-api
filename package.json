@@ -6,7 +6,7 @@
   "module": "src/index",
   "scripts": {
     "build": "webpack-cli --mode production",
-    "build-dev": "webpack-cli -w src/ --mode development",
+    "build-dev": "webpack-cli -w --mode development",
     "prepublishOnly": "npm run build && npm run test",
     "start": "node dist/",
     "start-dev": "supervisor -w dist/ dist/",
@@ -15,7 +15,7 @@
   "author": "Alexei Myshkouski",
   "license": "MIT",
   "dependencies": {
-    "ajv": "^6.2.1",
+    "ajv": "^6.4.0",
     "ajv-errors": "^1.0.0",
     "json8-patch": "^0.4.1",
     "lodash": "^4.17.5"
@@ -27,14 +27,14 @@
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-plugin-transform-runtime": "^6.23.0",
     "babel-preset-env": "^1.6.1",
-    "eslint": "^4.18.2",
+    "eslint": "^4.19.1",
     "eslint-config-airbnb-base": "^12.1.0",
     "eslint-loader": "^2.0.0",
-    "eslint-plugin-import": "^2.9.0",
+    "eslint-plugin-import": "^2.10.0",
     "json-loader": "^0.5.7",
-    "mocha": "^5.0.4",
-    "webpack": "^4.1.1",
-    "webpack-cli": "^2.0.10",
+    "mocha": "^5.0.5",
+    "webpack": "^4.4.1",
+    "webpack-cli": "^2.0.13",
     "webpack-node-externals": "^1.6.0",
     "yml-loader": "^2.1.0"
   }

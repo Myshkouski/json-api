@@ -92,10 +92,6 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-runtime/core-js/promise");
-
-var _promise2 = _interopRequireDefault(_promise);
-
 var _regenerator = __webpack_require__(/*! babel-runtime/regenerator */ "babel-runtime/regenerator");
 
 var _regenerator2 = _interopRequireDefault(_regenerator);
@@ -111,10 +107,6 @@ var _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
 var _createClass2 = __webpack_require__(/*! babel-runtime/helpers/createClass */ "babel-runtime/helpers/createClass");
 
 var _createClass3 = _interopRequireDefault(_createClass2);
-
-var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
-
-var _keys2 = _interopRequireDefault(_keys);
 
 var _getIterator2 = __webpack_require__(/*! babel-runtime/core-js/get-iterator */ "babel-runtime/core-js/get-iterator");
 
@@ -152,33 +144,15 @@ var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
 
 var _get2 = _interopRequireDefault(_get);
 
-var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
-
-var _set2 = _interopRequireDefault(_set);
-
-var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
-
-var _pick2 = _interopRequireDefault(_pick);
-
-var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
-
-var _omit2 = _interopRequireDefault(_omit);
-
 var _validate2 = __webpack_require__(/*! ./validate */ "./src/validate.js");
 
 var _mapValidationErrors = __webpack_require__(/*! ./mapValidationErrors */ "./src/mapValidationErrors.js");
 
 var _mapValidationErrors2 = _interopRequireDefault(_mapValidationErrors);
 
-var _paginationStrategies = __webpack_require__(/*! ./paginationStrategies */ "./src/paginationStrategies.js");
-
-var pagination = _interopRequireWildcard(_paginationStrategies);
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _wrapForSingleOrEvery(f) {
+function _wrapForOneOrMany(f) {
   return function () {
     var _this = this;
 
@@ -199,20 +173,24 @@ function _wrapForSingleOrEvery(f) {
 
 function _wrapForManyOnly(f) {
   return function () {
+    var _this2 = this;
+
     for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
       args[_key2] = arguments[_key2];
     }
 
     var data = args[0];
     if (Array.isArray(data)) {
-      return f.apply(this, [data].concat((0, _toConsumableArray3.default)(args.slice(1))));
+      return data.map(function (data) {
+        return f.apply(_this2, [data].concat((0, _toConsumableArray3.default)(args.slice(1))));
+      });
     }
 
     return data;
   };
 }
 
-var _cache = _wrapForSingleOrEvery(function (data, cache) {
+var _cache = _wrapForOneOrMany(function (data, cache) {
   var _data$data = data.data,
       id = _data$data.id,
       type = _data$data.type;
@@ -225,37 +203,32 @@ var _cache = _wrapForSingleOrEvery(function (data, cache) {
   cache[type][id] = data;
 });
 
-function assignAlias(data, alias, fullPath) {
-  if (typeof alias == 'string') {
-    return (0, _get2.default)(data, alias);
-  } else {
-    var obj = void 0;
-    if (Array.isArray(alias)) {
-      obj = [];
+function assignAlias(data, alias) {
+  if ((typeof data === 'undefined' ? 'undefined' : (0, _typeof3.default)(data)) == 'object') {
+    if (typeof alias == 'string') {
+      return (0, _get2.default)(data, alias);
+    } else if (Array.isArray(alias)) {
+      var _array = [];
+
+      for (var _index in alias) {
+        _array[key] = assignAlias(data, alias[_index]);
+      }
+
+      return _array;
     } else if ((typeof alias === 'undefined' ? 'undefined' : (0, _typeof3.default)(alias)) == 'object') {
-      obj = (0, _assign2.default)({}, data);
+      var obj = (0, _assign2.default)({}, data);
+
+      for (var _key3 in alias) {
+        obj[_key3] = assignAlias(data, alias[_key3]);
+      }
+
+      return obj;
     } else {
       var error = new TypeError('Canot apply dictionary to document');
       error.doc = data;
       error.alias = alias;
       throw error;
     }
-
-    for (var _key3 in alias) {
-      var path = (fullPath || '') + _key3;
-
-      alias = alias[_key3];
-
-      var aliased = assignAlias(data, alias, path);
-
-      if (path != alias) {
-        obj = (0, _omit2.default)(obj, [alias]);
-      }
-
-      (0, _set2.default)(obj, _key3, aliased);
-    }
-
-    return obj;
   }
 }
 
@@ -306,7 +279,7 @@ function _applySort(data, options) {
       for (var _iterator = (0, _getIterator3.default)(rules), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
         var rule = _step.value;
 
-        var res = _sortByKey(rule, a, b);
+        var res = _sortByKey(rule, a.data, b.data);
 
         if (res) {
           return res;
@@ -331,83 +304,28 @@ function _applySort(data, options) {
   });
 }
 
-function _applyAttributesFields(data, options) {
-  options = options.split(',');
-  data.attributes = (0, _pick2.default)(data.attributes, options);
-  return data;
-}
-
-var resourceMembers = ['id', 'type', 'attributes', 'relationships', 'links', 'meta'];
-
-var _preTransform = _wrapForSingleOrEvery(function (_data, options) {
-  var data = _data;
-
+function _jsonapifyData(data, options) {
   if ('alias' in options) {
     data = assignAlias(data, options.alias);
-  }
-
-  var attributes = (0, _omit2.default)(data, resourceMembers);
-
-  if ((0, _keys2.default)(attributes)) {
-    (0, _defaultsDeep2.default)(data, {
-      attributes: attributes
-    });
-  }
-
-  data = (0, _pick2.default)(data, resourceMembers);
-
-  if ('id' in data) {
-    data.id += '';
   }
 
   if ('defaults' in options) {
     data = assignDefaults(data, options.defaults);
   }
 
-  if ('fields' in options) {
-    data = _applyAttributesFields(data, options.fields);
-  }
-
-  Object.defineProperty(data, '_source', {
-    get: function get() {
-      return _data;
-    }
-  });
-
-  return data;
-});
-
-function _applyPagination(data, options, body) {
-  var strategy = pagination[options.strategy];
-
-  if (strategy) {
-    var _strategy$bounds = strategy.bounds(data.length, options.offset, options.limit),
-        offset = _strategy$bounds.offset,
-        end = _strategy$bounds.end;
-
-    ['self', 'first', 'last', 'prev', 'next'].forEach(function (key) {
-      if (typeof strategy[key] == 'function') {
-        var query = strategy[key](data.length, offset, end, options.limit);
-
-        // set(body, `links.${ key }`, query)
-      }
-    });
-
-    data = data.slice(offset, end);
-  } else {
-    throw new ReferenceError('Cannot use pagination strategy:', options.strategy);
-  }
-
   return data;
 }
 
-var _postTransform = _wrapForManyOnly(function (data, options, report) {
+var _preTransform = _wrapForOneOrMany(function (data, options) {
+  return {
+    originalData: data,
+    data: _jsonapifyData(data, options)
+  };
+});
+
+var _postTransform = _wrapForManyOnly(function (data, options) {
   if ('sort' in options) {
     data = _applySort(data, options.sort);
-  }
-
-  if ('page' in options) {
-    data = _applyPagination(data, options.page, report);
   }
 
   return data;
@@ -634,7 +552,10 @@ var JsonApi = function () {
     (0, _classCallCheck3.default)(this, JsonApi);
 
     this.options = {};
-    this._connected = {};
+    this._cache = {
+      data: null,
+      included: null
+    };
 
     if ('body' in options) {
       if ((0, _typeof3.default)(options.body) != 'object') {
@@ -778,7 +699,7 @@ var JsonApi = function () {
     key: 'fetchData',
     value: function () {
       var _ref7 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee7(type, options) {
-        var _fetch, _ref8, data, included, _sourceData;
+        var _fetch, _ref8, data, included, _cache;
 
         return _regenerator2.default.wrap(function _callee7$(_context7) {
           while (1) {
@@ -792,27 +713,24 @@ var JsonApi = function () {
                 _ref8 = _context7.sent;
                 data = _ref8.data;
                 included = _ref8.included;
-                _sourceData = data;
+                _cache = {
+                  data: {},
+                  included: {}
+                };
 
-                // const cache = {
-                //   data: {},
-                //   included: {}
-                // }
 
-                data = _preTransform(data, options);
-                included = _preTransform(included, options);
+                _cache(_preTransform(data, options), _cache.data);
+                _cache(_preTransform(included, options), _cache.included);
 
-                // _cache(data, cache.data)
-                // _cache(included, cache.included)
-
-                data = _postTransform(data, options);
-                included = _postTransform(included, options);
-
-                // console.log(data)
-
+                _context7.t0 = data;
+                _context7.t1 = included;
                 return _context7.abrupt('return', {
-                  data: data,
-                  included: included
+                  data: _context7.t0,
+                  included: _context7.t1,
+
+                  get cache() {
+                    return _cache;
+                  }
                 });
 
               case 12:
@@ -832,51 +750,11 @@ var JsonApi = function () {
   }, {
     key: 'include',
     value: function () {
-      var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(fetched, types) {
-        var _this2 = this;
-
-        var res, _res$reduce, data, included;
-
+      var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(types) {
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
             switch (_context8.prev = _context8.next) {
               case 0:
-                _context8.next = 2;
-                return _promise2.default.all((0, _keys2.default)(types).map(function (type) {
-                  return _this2.fetchData(type, types[type]);
-                }));
-
-              case 2:
-                res = _context8.sent;
-                _res$reduce = res.reduce(function (res, fetched) {
-                  for (var _key4 in fetched) {
-                    if (Array.isArray(fetched[_key4])) {
-                      if (!res[_key4]) {
-                        res[_key4] = fetched[_key4];
-                      } else if (Array.isArray(res[_key4])) {
-                        res[_key4] = [].concat((0, _toConsumableArray3.default)(res[_key4]), (0, _toConsumableArray3.default)(fetched[_key4]));
-                      } else {
-                        res[_key4] = [res[_key4]].concat((0, _toConsumableArray3.default)(fetched[_key4]));
-                      }
-                    } else {
-                      if (!res[_key4]) {
-                        res[_key4] = fetched[_key4];
-                      } else if (Array.isArray(res[_key4])) {
-                        res[_key4] = [].concat((0, _toConsumableArray3.default)(res[_key4]), [fetched[_key4]]);
-                      } else {
-                        res[_key4] = [res[_key4], fetched[_key4]];
-                      }
-                    }
-
-                    return res;
-                  }
-                }, {}), data = _res$reduce.data, included = _res$reduce.included;
-                return _context8.abrupt('return', {
-                  data: data,
-                  included: included
-                });
-
-              case 5:
               case 'end':
                 return _context8.stop();
             }
@@ -884,7 +762,7 @@ var JsonApi = function () {
         }, _callee8, this);
       }));
 
-      function include(_x14, _x15) {
+      function include(_x14) {
         return _ref9.apply(this, arguments);
       }
 
@@ -905,7 +783,7 @@ var JsonApi = function () {
         }, _callee9, this);
       }));
 
-      function data(_x16) {
+      function data(_x15) {
         return _ref10.apply(this, arguments);
       }
 
@@ -916,28 +794,28 @@ var JsonApi = function () {
 }();
 
 /**
-await jsonapi.fetch('collection', {
+await jsonapi.data('collection', {
   action: 'read',
   sort: ['name', '-records'],
-  filter: { ... },
+  filter: [ any ],
   fields: ['name', 'records'],
   page: {
     limit: 1000
   },
   alias: {
     id: '_id'
-  }
-}) == {
-  data, originalData
-}
+  },
+  limit: 100
+})
 
 await jsonapi.include({
-  owner: {
+  relationships: [{
+    type: 'owner',
     alias: {
       id: '_id'
     },
     fields: ['name']
-  }
+  }]
 })
 */
 
@@ -1010,146 +888,6 @@ exports.default = function (error) {
 };
 
 module.exports = exports["default"];
-
-/***/ }),
-
-/***/ "./src/paginationStrategies.js":
-/*!*************************************!*\
-  !*** ./src/paginationStrategies.js ***!
-  \*************************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-var parsePaginationQueryParam = function parsePaginationQueryParam(param) {
-  param = parseInt(param);
-
-  if (isNaN(param)) {
-    param = 0;
-  } else {
-    param = Math.floor(param);
-  }
-
-  return param;
-};
-
-var tranformPaginationQuery = function tranformPaginationQuery(length, offset, limit) {
-  offset = parsePaginationQueryParam(offset);
-  limit = parsePaginationQueryParam(limit);
-
-  if (offset < 0) {
-    offset += length;
-  }
-
-  if (offset < 0) {
-    offset = 0;
-  } else if (offset >= length) {
-    offset = length;
-  }
-
-  if (limit < 0) {
-    limit = 0;
-  } else if (offset + limit > length) {
-    limit = length - offset;
-  }
-
-  return {
-    offset: offset,
-    limit: limit
-  };
-};
-
-var offset = exports.offset = {
-  limit: function limit(clientLimit, serverLimit) {
-    var limit = parsePaginationQueryParam(clientLimit);
-
-    if (limit >= 1 && limit < serverLimit) {
-      limit = Math.floor(limit);
-    } else if (serverLimit) {
-      limit = serverLimit;
-    } else {
-      limit = Infinity;
-    }
-
-    return limit;
-  },
-  bounds: function bounds(length, _offset, _limit) {
-    var _tranformPaginationQu = tranformPaginationQuery(length, _offset, _limit),
-        offset = _tranformPaginationQu.offset,
-        limit = _tranformPaginationQu.limit;
-
-    return {
-      offset: offset,
-      end: offset + limit
-    };
-  },
-  self: function self(length, _offset, _end, _limit) {
-    var _tranformPaginationQu2 = tranformPaginationQuery(length, _offset, _limit),
-        offset = _tranformPaginationQu2.offset,
-        limit = _tranformPaginationQu2.limit;
-
-    return {
-      page: {
-        offset: offset,
-        limit: limit
-      }
-    };
-  },
-  next: function next(length, _offset, _end, _limit) {
-    var _tranformPaginationQu3 = tranformPaginationQuery(length, _end, _limit),
-        offset = _tranformPaginationQu3.offset,
-        limit = _tranformPaginationQu3.limit;
-
-    if (!limit) {
-      return null;
-    }
-
-    return {
-      offset: offset,
-      limit: limit
-    };
-  },
-
-  prev: function prev(length, _offset, _end, _limit) {
-    var _tranformPaginationQu4 = tranformPaginationQuery(_offset, _offset - _limit, _limit),
-        offset = _tranformPaginationQu4.offset,
-        limit = _tranformPaginationQu4.limit;
-
-    if (!limit) {
-      return null;
-    }
-
-    return {
-      offset: offset,
-      limit: limit
-    };
-  },
-  first: function first(length, _offset, _end, _limit) {
-    var _tranformPaginationQu5 = tranformPaginationQuery(length, 0, _limit > length ? length : _limit > _offset && _offset > 0 ? _offset : _limit),
-        offset = _tranformPaginationQu5.offset,
-        limit = _tranformPaginationQu5.limit;
-
-    return {
-      offset: offset,
-      limit: _limit
-    };
-  },
-  last: function last(length, _offset, _end, _limit) {
-    var _tranformPaginationQu6 = tranformPaginationQuery(length, 2 * _limit < length ? length - _limit : _limit < length ? _end + _limit < length ? _end : length - _limit : 0, _limit),
-        offset = _tranformPaginationQu6.offset,
-        limit = _tranformPaginationQu6.limit;
-
-    return {
-      offset: offset,
-      limit: limit
-    };
-  }
-};
 
 /***/ }),
 
@@ -1503,28 +1241,6 @@ module.exports = require("babel-runtime/core-js/object/assign");
 
 /***/ }),
 
-/***/ "babel-runtime/core-js/object/keys":
-/*!****************************************************!*\
-  !*** external "babel-runtime/core-js/object/keys" ***!
-  \****************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/object/keys");
-
-/***/ }),
-
-/***/ "babel-runtime/core-js/promise":
-/*!************************************************!*\
-  !*** external "babel-runtime/core-js/promise" ***!
-  \************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/promise");
-
-/***/ }),
-
 /***/ "babel-runtime/helpers/asyncToGenerator":
 /*!*********************************************************!*\
   !*** external "babel-runtime/helpers/asyncToGenerator" ***!
@@ -1644,40 +1360,7 @@ module.exports = require("lodash/defaultsDeep");
 
 module.exports = require("lodash/get");
 
-/***/ }),
-
-/***/ "lodash/omit":
-/*!******************************!*\
-  !*** external "lodash/omit" ***!
-  \******************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/omit");
-
-/***/ }),
-
-/***/ "lodash/pick":
-/*!******************************!*\
-  !*** external "lodash/pick" ***!
-  \******************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/pick");
-
-/***/ }),
-
-/***/ "lodash/set":
-/*!*****************************!*\
-  !*** external "lodash/set" ***!
-  \*****************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/set");
-
 /***/ })
 
 /******/ });
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=main.js.map
