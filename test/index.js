@@ -68,7 +68,7 @@ describe('Instance Methods', () => {
 
   beforeEach(() => {
     jsonapi = new JsonApi()
-    resourceName = 'resource'
+    resourceName = 'collections'
     fetchCollection = options => {
       const data = [{
         _id: 2,
@@ -123,7 +123,8 @@ describe('Instance Methods', () => {
       const res = await jsonapi.fetchData(resourceName, {
         action: 'read',
         alias: {
-          'id': '_id'
+          'id': '_id',
+          'relationships.ops': 'ops'
         },
         defaults: {
           type: 'test/data'
@@ -137,13 +138,13 @@ describe('Instance Methods', () => {
         }
       })
 
-      console.dir(res)
+      console.dir(res, { depth: Infinity })
 
       const r = await jsonapi.include(res.data, {
         ops: {
           action: 'read',
           alias: {
-            id: '_id'
+            'id': '_id'
           },
           defaults: {
             type: 'test/include'
@@ -152,7 +153,7 @@ describe('Instance Methods', () => {
         }
       })
 
-      console.dir(r)
+      console.dir(r, { depth: Infinity })
     })
   })
 })

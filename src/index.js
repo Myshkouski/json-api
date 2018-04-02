@@ -54,6 +54,7 @@ function assignAlias(data, alias, fullPath) {
     return get(data, alias)
   } else {
     let obj
+    console.log('!', alias)
     if (Array.isArray(alias)) {
       obj = []
     } else if (typeof alias == 'object') {
@@ -68,12 +69,12 @@ function assignAlias(data, alias, fullPath) {
     for (let key in alias) {
       const path = (fullPath || '') + key
 
-      alias = alias[key]
+      let _alias = alias[key]
 
-      const aliased = assignAlias(data, alias, path)
+      const aliased = assignAlias(data, _alias, path)
 
-      if (path != alias) {
-        obj = omit(obj, [alias])
+      if (path != _alias) {
+        obj = omit(obj, [_alias])
       }
 
       set(obj, key, aliased)
@@ -156,7 +157,7 @@ const _preTransform = _wrapForSingleOrEvery((_data, options) => {
 
   data = pick(data, resourceMembers)
 
-  if('id' in data) {
+  if ('id' in data) {
     data.id += ''
   }
 
@@ -186,7 +187,8 @@ function _applyPagination(data, options, body) {
       end
     } = strategy.bounds(data.length, options.offset, options.limit)
 
-    ;['self', 'first', 'last', 'prev', 'next'].forEach(key => {
+    ;
+    ['self', 'first', 'last', 'prev', 'next'].forEach(key => {
       if (typeof strategy[key] == 'function') {
         const query = strategy[key](data.length, offset, end, options.limit)
 
@@ -207,7 +209,7 @@ const _postTransform = _wrapForManyOnly((data, options, report) => {
     data = _applySort(data, options.sort)
   }
 
-  if('page' in options) {
+  if ('page' in options) {
     data = _applyPagination(data, options.page, report)
   }
 
@@ -423,23 +425,26 @@ class JsonApi {
   async include(fetched, types) {
     const res = await Promise.all(Object.keys(types).map(type => this.fetchData(type, types[type])))
 
+    const cache = {}
+    _cache(data, cache)
+
     const {
       data,
       included
     } = res.reduce((res, fetched) => {
-      for(let key in fetched) {
-        if(Array.isArray(fetched[key])) {
-          if(!res[key]) {
+      for (let key in fetched) {
+        if (Array.isArray(fetched[key])) {
+          if (!res[key]) {
             res[key] = fetched[key]
-          } else if(Array.isArray(res[key])) {
+          } else if (Array.isArray(res[key])) {
             res[key] = [...res[key], ...fetched[key]]
           } else {
             res[key] = [res[key], ...fetched[key]]
           }
         } else {
-          if(!res[key]) {
+          if (!res[key]) {
             res[key] = fetched[key]
-          } else if(Array.isArray(res[key])) {
+          } else if (Array.isArray(res[key])) {
             res[key] = [...res[key], fetched[key]]
           } else {
             res[key] = [res[key], fetched[key]]

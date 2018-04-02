@@ -230,6 +230,7 @@ function assignAlias(data, alias, fullPath) {
     return (0, _get2.default)(data, alias);
   } else {
     var obj = void 0;
+    console.log('!', alias);
     if (Array.isArray(alias)) {
       obj = [];
     } else if ((typeof alias === 'undefined' ? 'undefined' : (0, _typeof3.default)(alias)) == 'object') {
@@ -244,12 +245,12 @@ function assignAlias(data, alias, fullPath) {
     for (var _key3 in alias) {
       var path = (fullPath || '') + _key3;
 
-      alias = alias[_key3];
+      var _alias = alias[_key3];
 
-      var aliased = assignAlias(data, alias, path);
+      var aliased = assignAlias(data, _alias, path);
 
-      if (path != alias) {
-        obj = (0, _omit2.default)(obj, [alias]);
+      if (path != _alias) {
+        obj = (0, _omit2.default)(obj, [_alias]);
       }
 
       (0, _set2.default)(obj, _key3, aliased);
@@ -835,7 +836,7 @@ var JsonApi = function () {
       var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(fetched, types) {
         var _this2 = this;
 
-        var res, _res$reduce, data, included;
+        var res, cache, _res$reduce, data, included;
 
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
@@ -848,6 +849,10 @@ var JsonApi = function () {
 
               case 2:
                 res = _context8.sent;
+                cache = {};
+
+                _cache(data, cache);
+
                 _res$reduce = res.reduce(function (res, fetched) {
                   for (var _key4 in fetched) {
                     if (Array.isArray(fetched[_key4])) {
@@ -876,7 +881,7 @@ var JsonApi = function () {
                   included: included
                 });
 
-              case 5:
+              case 7:
               case 'end':
                 return _context8.stop();
             }
