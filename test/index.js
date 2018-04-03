@@ -1,5 +1,5 @@
 const assert = require('assert')
-
+const lodash = require('lodash')
 const JsonApi = require('../')
 
 describe('Module', () => {
@@ -69,8 +69,22 @@ describe('Instance Methods', () => {
   beforeEach(() => {
     jsonapi = new JsonApi()
     resourceName = 'collections'
-    fetchCollection = options => {
-      const data = [{
+    const _wrap = f => function(options) {
+      let { data, included } = f.apply(this, arguments)
+
+      if('filter' in options && 'id' in options.filter) {
+        if(Array.isArray(options.filter.id)) {
+          data = data.filter(resource => options.filter.id.some(id => id === resource._id))
+        } else {
+          data = data.find(resource => options.filter.id === resource._id)
+        }
+      }
+
+      return { data, included }
+    }
+
+    fetchCollection = _wrap(options => {
+      let data = [{
         _id: 2,
         name: 'two',
         ops: [3]
@@ -79,13 +93,17 @@ describe('Instance Methods', () => {
         name: 'one',
         ops: [1, 2]
       }]
+
       return {
-        data
+        data,
+        _report: {
+          filter: true
+        }
       }
-    }
-    fetchOps = options => {
-      const data = [
-        {
+    })
+
+    fetchOps = _wrap(options => {
+      const data = [{
           _id: 1,
           action: 'create',
           timestamp: Date.now()
@@ -93,18 +111,19 @@ describe('Instance Methods', () => {
         {
           _id: 2,
           action: 'read',
-          timestamp: Date.now()
+          timestamp: Date.now() + 1 * 1000
         },
         {
           _id: 3,
           action: 'update',
-          timestamp: Date.now()
+          timestamp: Date.now() + 2 * 1000
         }
       ]
+
       return {
         data
       }
-    }
+    })
   })
 
   // describe('#connect', () => {
@@ -120,40 +139,64 @@ describe('Instance Methods', () => {
       jsonapi.connect(resourceName, fetchCollection)
       jsonapi.connect('ops', fetchOps)
 
-      const res = await jsonapi.fetchData(resourceName, {
+      const { data } = await jsonapi.fetchData(resourceName, {
         action: 'read',
-        alias: {
-          'id': '_id',
-          'relationships.ops': 'ops'
+        [resourceName]: {
+          alias: {
+            'id': '_id'
+          },
+          defaults: {
+            type: 'test/data'
+          },
+          filter: {
+            id: 1
+          },
+          fields: 'name',
+          sort: 'id',
+          page: {
+            strategy: 'offset',
+            // offset: 1,
+            limit: 10
+          },
+          include: {
+            ops: {
+              key: 'ops',
+              alias: {
+                'id': ''
+              }
+            }
+          }
         },
-        defaults: {
-          type: 'test/data'
-        },
-
-        fields: 'name',
-        sort: 'id',
-        page: {
-          strategy: 'offset',
-          limit: 20
-        }
-      })
-
-      console.dir(res, { depth: Infinity })
-
-      const r = await jsonapi.include(res.data, {
         ops: {
           action: 'read',
           alias: {
             'id': '_id'
           },
+          fields: 'timestamp',
           defaults: {
-            type: 'test/include'
+            type: 'test/include/ops'
           },
-          fields: 'action'
+          sort: '-timestamp'
         }
       })
 
-      console.dir(r, { depth: Infinity })
+      console.dir(data, { depth: Infinity })
+
+      // const { included } = await jsonapi.include(data, {
+      //   ops: {
+      //     action: 'read',
+      //     alias: {
+      //       'id': '_id'
+      //     },
+      //     fields: 'timestamp',
+      //     defaults: {
+      //       type: 'test/include/ops'
+      //     },
+      //     sort: '-timestamp'
+      //   }
+      // })
+      //
+      // console.dir(included, { depth: Infinity })
     })
   })
 })

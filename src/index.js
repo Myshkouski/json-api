@@ -14,6 +14,18 @@ import mapValidationErrors from './mapValidationErrors'
 
 import * as pagination from './paginationStrategies'
 
+function _concatenateData(...args) {
+  const array = args.reduce((a, b) => {
+    if (Array.isArray(b)) {
+      return a.concat(b)
+    } else {
+      return a.concat([b])
+    }
+  }, [])
+
+  return array.length ? array : null
+}
+
 function _wrapForSingleOrEvery(f) {
   return function(...args) {
     const data = args[0]
@@ -36,53 +48,49 @@ function _wrapForManyOnly(f) {
   }
 }
 
-const _cache = _wrapForSingleOrEvery((data, cache) => {
-  const {
-    id,
-    type
-  } = data.data
+const _forEvery = _wrapForSingleOrEvery((data, f) => f(data))
 
-  if (!cache[type]) {
-    cache[type] = {}
+const _extractIds = _wrapForSingleOrEvery(resource => resource.id)
+
+const _createIndex = _wrapForSingleOrEvery((data, cache) => {
+  for(let type in data._include) {
+    cache[type] = _concatenateData(cache[type] || [], data._include[type])
   }
-
-  cache[type][id] = data
 })
 
 function assignAlias(data, alias, fullPath) {
   if (typeof alias == 'string') {
-    return get(data, alias)
+    return alias.length ? get(data, alias) : data
   } else {
     let obj
-    console.log('!', alias)
     if (Array.isArray(alias)) {
       obj = []
-    } else if (typeof alias == 'object') {
-      obj = Object.assign({}, data)
     } else {
-      const error = new TypeError('Canot apply dictionary to document')
-      error.doc = data
-      error.alias = alias
-      throw error
+      obj = Object.assign({}, data)
     }
 
-    for (let key in alias) {
-      const path = (fullPath || '') + key
+    if (typeof alias == 'object') {
+      for (let key in alias) {
+        const path = (fullPath || '') + key
 
-      let _alias = alias[key]
+        let _alias = alias[key]
 
-      const aliased = assignAlias(data, _alias, path)
+        const aliased = assignAlias(data, _alias, path)
 
-      if (path != _alias) {
-        obj = omit(obj, [_alias])
+        if (path != _alias) {
+          obj = omit(obj, [_alias])
+        }
+
+        set(obj, key, aliased)
       }
-
-      set(obj, key, aliased)
     }
 
     return obj
   }
 }
+
+const _wrappedAssignAlias = _wrapForSingleOrEvery(assignAlias)
+const _wrappedPick = _wrapForSingleOrEvery(pick)
 
 function assignDefaults(data, options) {
   return defaults({}, data, options)
@@ -113,15 +121,18 @@ function _parseSortRules(string) {
       rule[0] = key
       rule[1] = 1
     }
+
+
+
     return rule
   })
 }
 
-function _applySort(data, options) {
+const _applySort = _wrapForManyOnly((data, options) => {
   const rules = _parseSortRules(options)
   return data.sort((a, b) => {
     for (let rule of rules) {
-      const res = _sortByKey(rule, a, b)
+      const res = _sortByKey(rule, a.attributes, b.attributes)
 
       if (res) {
         return res
@@ -130,11 +141,48 @@ function _applySort(data, options) {
 
     return 0
   })
-}
+})
 
 function _applyAttributesFields(data, options) {
   options = options.split(',')
   data.attributes = pick(data.attributes, options)
+  return data
+}
+
+const RESOURCE_IDENTIFIER_PROPS = ['id', 'type', 'meta']
+
+function _applyIncluded(data, cache = {}, options) {
+  if(data) {
+    Object.defineProperty(data, '_include', {
+      enumerable: true,
+      value: {}
+    })
+
+    for(let type in options) {
+      let typeOptions = options[type]
+      let resourceIdentifiers = data._source
+      if('key' in typeOptions && typeOptions.key.length) {
+        resourceIdentifiers = get(data._source, typeOptions.key)
+      }
+
+      if('alias' in typeOptions) {
+        resourceIdentifiers = _wrappedAssignAlias(resourceIdentifiers, typeOptions.alias)
+      }
+
+      resourceIdentifiers = _wrappedPick(resourceIdentifiers, RESOURCE_IDENTIFIER_PROPS)
+
+      data._include[type] = {}
+
+      _forEvery(resourceIdentifiers, resourceId => {
+        Object.assign(data._include[type], {
+          get [resourceId.id]() {
+            return get(cache, [type, resourceId.id])
+          }
+        })
+      })
+    }
+  }
+
   return data
 }
 
@@ -175,10 +223,16 @@ const _preTransform = _wrapForSingleOrEvery((_data, options) => {
     }
   })
 
+  const cache = {}
+
+  if('include' in options) {
+    _applyIncluded(data, cache, options.include)
+  }
+
   return data
 })
 
-function _applyPagination(data, options, body) {
+const _applyPagination = _wrapForManyOnly((data, options, body) => {
   const strategy = pagination[options.strategy]
 
   if (strategy) {
@@ -197,14 +251,18 @@ function _applyPagination(data, options, body) {
     })
 
     data = data.slice(offset, end)
+
+    if(!data.length) {
+      data = null
+    }
   } else {
     throw new ReferenceError('Cannot use pagination strategy:', options.strategy)
   }
 
   return data
-}
+})
 
-const _postTransform = _wrapForManyOnly((data, options, report) => {
+const _postTransform = (data, options, report) => {
   if ('sort' in options) {
     data = _applySort(data, options.sort)
   }
@@ -214,7 +272,7 @@ const _postTransform = _wrapForManyOnly((data, options, report) => {
   }
 
   return data
-})
+}
 
 class JsonApi {
   static async validate(...args) {
@@ -390,13 +448,13 @@ class JsonApi {
     this._connected[type] = _fetch
   }
 
-  async fetchData(type, options) {
+  async fetchData(type, options, ...customArgs) {
     const _fetch = this._connected[type]
 
     let {
       data,
       included
-    } = await _fetch[options.action](options)
+    } = await _fetch[options.action](options, ...customArgs)
 
     const _sourceData = data
 
@@ -405,11 +463,11 @@ class JsonApi {
     //   included: {}
     // }
 
-    data = _preTransform(data, options)
-    included = _preTransform(included, options)
+    data = _preTransform(data, {}, options)
+    included = _preTransform(included, {}, options)
 
-    // _cache(data, cache.data)
-    // _cache(included, cache.included)
+    // _createIndex(data, cache.data)
+    // _createIndex(included, cache.included)
 
     data = _postTransform(data, options)
     included = _postTransform(included, options)
@@ -422,43 +480,66 @@ class JsonApi {
     }
   }
 
-  async include(fetched, types) {
-    const res = await Promise.all(Object.keys(types).map(type => this.fetchData(type, types[type])))
+  async include(fetched, types, ...customArgs) {
+    if(fetched) {
+      const _fetchedIndex = {}
+      _createIndex(fetched, _fetchedIndex)
 
-    const cache = {}
-    _cache(data, cache)
-
-    const {
-      data,
-      included
-    } = res.reduce((res, fetched) => {
-      for (let key in fetched) {
-        if (Array.isArray(fetched[key])) {
-          if (!res[key]) {
-            res[key] = fetched[key]
-          } else if (Array.isArray(res[key])) {
-            res[key] = [...res[key], ...fetched[key]]
-          } else {
-            res[key] = [res[key], ...fetched[key]]
+      const _fetchArgs = Object.keys(_fetchedIndex).map(type => {
+        const options = Object.assign({}, {
+          filter: {
+            id: _extractIds(_fetchedIndex[type])
           }
-        } else {
-          if (!res[key]) {
-            res[key] = fetched[key]
-          } else if (Array.isArray(res[key])) {
-            res[key] = [...res[key], fetched[key]]
+        }, types[type])
+        return [type, options]
+      })
+
+      const res = await Promise.all(_fetchArgs.map(args => this.fetchData(...args, ...customArgs)))
+
+      let {
+        data,
+        included
+      } = res.reduce((res, fetched) => {
+        for (let key in fetched) {
+          if (Array.isArray(fetched[key])) {
+            if (!res[key]) {
+              res[key] = fetched[key]
+            } else if (Array.isArray(res[key])) {
+              res[key] = [...res[key], ...fetched[key]]
+            } else {
+              res[key] = [res[key], ...fetched[key]]
+            }
           } else {
-            res[key] = [res[key], fetched[key]]
+            if (!res[key]) {
+              res[key] = fetched[key]
+            } else if (Array.isArray(res[key])) {
+              res[key] = [...res[key], fetched[key]]
+            } else {
+              res[key] = [res[key], fetched[key]]
+            }
+          }
+
+          return res
+        }
+      }, {})
+
+      data.forEach(resource => {
+        if('_include' in resource) {
+          for(let type in resource) {
+            for(let id in resource[type]) {
+              set(resource, ['_include', type, id], get(_fetchedIndex, [type, id]))
+            }
           }
         }
+        return resource
+      })
 
-        return res
+      return {
+        included: data
       }
-    }, {})
-
-    return {
-      data,
-      included
     }
+
+    return { included: undefined }
   }
 
   async data(type) {
@@ -492,9 +573,9 @@ await jsonapi.include({
 })
 */
 
-// function _cachePendingResources(data, cache) {
+// function _createIndexPendingResources(data, cache) {
 //   if (Array.isArray(data)) {
-//     data.forEach(data => _cachePendingResources(data, cache))
+//     data.forEach(data => _createIndexPendingResources(data, cache))
 //   } else if (typeof data == 'object') {
 //     const {
 //       id,
