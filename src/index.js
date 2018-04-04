@@ -50,11 +50,10 @@ function _wrapForManyOnly(f) {
 
 const _forEvery = _wrapForSingleOrEvery((data, f) => f(data))
 
-const _extractIds = _wrapForSingleOrEvery(resource => resource.id)
-
 const _createIndex = _wrapForSingleOrEvery((data, cache) => {
   for(let type in data._include) {
-    cache[type] = _concatenateData(cache[type] || [], data._include[type])
+    defaults(cache, { [type]: {} })
+    Object.keys(data._include[type]).forEach(id => set(cache, [type, id], null))
   }
 })
 
@@ -188,7 +187,7 @@ function _applyIncluded(data, cache = {}, options) {
 
 const resourceMembers = ['id', 'type', 'attributes', 'relationships', 'links', 'meta']
 
-const _preTransform = _wrapForSingleOrEvery((_data, options) => {
+const _preTransform = _wrapForSingleOrEvery((_data, cache, options) => {
   let data = _data
 
   if ('alias' in options) {
@@ -222,8 +221,6 @@ const _preTransform = _wrapForSingleOrEvery((_data, options) => {
       return _data
     }
   })
-
-  const cache = {}
 
   if('include' in options) {
     _applyIncluded(data, cache, options.include)
@@ -449,27 +446,69 @@ class JsonApi {
   }
 
   async fetchData(type, options, ...customArgs) {
+    console.log(options);
     const _fetch = this._connected[type]
 
     let {
       data,
       included
-    } = await _fetch[options.action](options, ...customArgs)
+    } = await _fetch[options.action](options[type], ...customArgs)
 
     const _sourceData = data
 
-    // const cache = {
-    //   data: {},
-    //   included: {}
-    // }
+    const cache = {}
 
-    data = _preTransform(data, {}, options)
-    included = _preTransform(included, {}, options)
+    data = _preTransform(data, cache, options[type])
+    included = _preTransform(included, cache, options)
 
-    // _createIndex(data, cache.data)
-    // _createIndex(included, cache.included)
+    // _createIndex(data, cache)
+    //
+    // const _fetchArgs = Object.keys(cache).map(type => {
+    //   const ids = Object.keys(cache[type])
+    //   const _options = cloneDeep(options)
+    //   set(_options, [type, 'filter', 'id'], ids)
+    //   return [type, _options]
+    // })
+    //
+    // const res = await Promise.all(_fetchArgs.map(args => this.fetchData(...args, ...customArgs)))
+    //
+    // let r = res.reduce((res, fetched) => {
+    //   for (let key in fetched) {
+    //     if (Array.isArray(fetched[key])) {
+    //       if (!res[key]) {
+    //         res[key] = fetched[key]
+    //       } else if (Array.isArray(res[key])) {
+    //         res[key] = [...res[key], ...fetched[key]]
+    //       } else {
+    //         res[key] = [res[key], ...fetched[key]]
+    //       }
+    //     } else {
+    //       if (!res[key]) {
+    //         res[key] = fetched[key]
+    //       } else if (Array.isArray(res[key])) {
+    //         res[key] = [...res[key], fetched[key]]
+    //       } else {
+    //         res[key] = [res[key], fetched[key]]
+    //       }
+    //     }
+    //
+    //     return res
+    //   }
+    // }, {})
+    //
+    // _included.forEach(resource => {
+    //   if('_include' in resource) {
+    //     for(let type in resource) {
+    //       for(let id in resource[type]) {
+    //         set(resource, ['_include', type, id], get(_fetchedIndex, [type, id]))
+    //       }
+    //     }
+    //   }
+    //   return resource
+    // })
 
-    data = _postTransform(data, options)
+
+    data = _postTransform(data, options[type])
     included = _postTransform(included, options)
 
     // console.log(data)
@@ -483,60 +522,7 @@ class JsonApi {
   async include(fetched, types, ...customArgs) {
     if(fetched) {
       const _fetchedIndex = {}
-      _createIndex(fetched, _fetchedIndex)
 
-      const _fetchArgs = Object.keys(_fetchedIndex).map(type => {
-        const options = Object.assign({}, {
-          filter: {
-            id: _extractIds(_fetchedIndex[type])
-          }
-        }, types[type])
-        return [type, options]
-      })
-
-      const res = await Promise.all(_fetchArgs.map(args => this.fetchData(...args, ...customArgs)))
-
-      let {
-        data,
-        included
-      } = res.reduce((res, fetched) => {
-        for (let key in fetched) {
-          if (Array.isArray(fetched[key])) {
-            if (!res[key]) {
-              res[key] = fetched[key]
-            } else if (Array.isArray(res[key])) {
-              res[key] = [...res[key], ...fetched[key]]
-            } else {
-              res[key] = [res[key], ...fetched[key]]
-            }
-          } else {
-            if (!res[key]) {
-              res[key] = fetched[key]
-            } else if (Array.isArray(res[key])) {
-              res[key] = [...res[key], fetched[key]]
-            } else {
-              res[key] = [res[key], fetched[key]]
-            }
-          }
-
-          return res
-        }
-      }, {})
-
-      data.forEach(resource => {
-        if('_include' in resource) {
-          for(let type in resource) {
-            for(let id in resource[type]) {
-              set(resource, ['_include', type, id], get(_fetchedIndex, [type, id]))
-            }
-          }
-        }
-        return resource
-      })
-
-      return {
-        included: data
-      }
     }
 
     return { included: undefined }
@@ -546,32 +532,6 @@ class JsonApi {
 
   }
 }
-
-/**
-await jsonapi.fetch('collection', {
-  action: 'read',
-  sort: ['name', '-records'],
-  filter: { ... },
-  fields: ['name', 'records'],
-  page: {
-    limit: 1000
-  },
-  alias: {
-    id: '_id'
-  }
-}) == {
-  data, originalData
-}
-
-await jsonapi.include({
-  owner: {
-    alias: {
-      id: '_id'
-    },
-    fields: ['name']
-  }
-})
-*/
 
 // function _createIndexPendingResources(data, cache) {
 //   if (Array.isArray(data)) {

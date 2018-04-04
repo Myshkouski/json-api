@@ -74,9 +74,9 @@ describe('Instance Methods', () => {
 
       if('filter' in options && 'id' in options.filter) {
         if(Array.isArray(options.filter.id)) {
-          data = data.filter(resource => options.filter.id.some(id => id === resource._id))
+          data = data.filter(resource => options.filter.id.some(id => id == resource._id))
         } else {
-          data = data.find(resource => options.filter.id === resource._id)
+          data = data.find(resource => options.filter.id == resource._id)
         }
       }
 
@@ -149,7 +149,7 @@ describe('Instance Methods', () => {
             type: 'test/data'
           },
           filter: {
-            id: 1
+            id: ['1', '2']
           },
           fields: 'name',
           sort: 'id',
