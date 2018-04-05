@@ -70,21 +70,30 @@ describe('Instance Methods', () => {
     jsonapi = new JsonApi()
     resourceName = 'collections'
     const _wrap = f => function(options) {
-      let { data, included } = f.apply(this, arguments)
+      let {
+        data,
+        included
+      } = f.apply(this, arguments)
 
-      if('filter' in options && 'id' in options.filter) {
-        if(Array.isArray(options.filter.id)) {
+      if (Array.isArray(data) && 'filter' in options && 'id' in options.filter) {
+        if (Array.isArray(options.filter.id)) {
           data = data.filter(resource => options.filter.id.some(id => id == resource._id))
         } else {
           data = data.find(resource => options.filter.id == resource._id)
         }
       }
 
-      return { data, included }
+      return {
+        data,
+        included,
+        _report: {
+          // filter: true
+        }
+      }
     }
 
     fetchCollection = _wrap(options => {
-      let data = [{
+      const data = [{
         _id: 2,
         name: 'two',
         ops: [3]
@@ -95,10 +104,7 @@ describe('Instance Methods', () => {
       }]
 
       return {
-        data,
-        _report: {
-          filter: true
-        }
+        data
       }
     })
 
@@ -139,17 +145,16 @@ describe('Instance Methods', () => {
       jsonapi.connect(resourceName, fetchCollection)
       jsonapi.connect('ops', fetchOps)
 
-      const { data } = await jsonapi.fetchData(resourceName, {
-        action: 'read',
+      const {
+        data,
+        included
+      } = await jsonapi.fetch('read', resourceName, {
         [resourceName]: {
           alias: {
             'id': '_id'
           },
-          defaults: {
-            type: 'test/data'
-          },
           filter: {
-            id: ['1', '2']
+            id: 1
           },
           fields: 'name',
           sort: 'id',
@@ -168,35 +173,21 @@ describe('Instance Methods', () => {
           }
         },
         ops: {
-          action: 'read',
           alias: {
             'id': '_id'
           },
           fields: 'timestamp',
-          defaults: {
-            type: 'test/include/ops'
-          },
           sort: '-timestamp'
         }
       })
 
-      console.dir(data, { depth: Infinity })
+      console.dir(data, {
+        depth: Infinity
+      })
 
-      // const { included } = await jsonapi.include(data, {
-      //   ops: {
-      //     action: 'read',
-      //     alias: {
-      //       'id': '_id'
-      //     },
-      //     fields: 'timestamp',
-      //     defaults: {
-      //       type: 'test/include/ops'
-      //     },
-      //     sort: '-timestamp'
-      //   }
-      // })
-      //
-      // console.dir(included, { depth: Infinity })
+      console.dir(included, {
+        depth: Infinity
+      })
     })
   })
 })

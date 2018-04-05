@@ -5,6 +5,7 @@ import get from 'lodash/get'
 import set from 'lodash/set'
 import pick from 'lodash/pick'
 import omit from 'lodash/omit'
+import merge from 'lodash/merge'
 
 import {
   validate,
@@ -50,12 +51,29 @@ function _wrapForManyOnly(f) {
 
 const _forEvery = _wrapForSingleOrEvery((data, f) => f(data))
 
-const _createIndex = _wrapForSingleOrEvery((data, cache) => {
-  for(let type in data._include) {
-    defaults(cache, { [type]: {} })
-    Object.keys(data._include[type]).forEach(id => set(cache, [type, id], null))
+const _createIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
+  for (let type in data._include) {
+    defaults(_indexedCache, {
+      [type]: {}
+    })
+    Object.keys(data._include[type]).forEach(id => set(_indexedCache, [type, id]))
   }
 })
+
+const _cacheIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
+  set(_indexedCache, [data.type, data.id], data)
+})
+
+function _extractIndexedCache(_indexedCache) {
+  const array = []
+  for(let type in _indexedCache) {
+    const _indexedCacheType = _indexedCache[type]
+    for(let id in _indexedCacheType) {
+      array.push(_indexedCacheType[id])
+    }
+  }
+  return array
+}
 
 function assignAlias(data, alias, fullPath) {
   if (typeof alias == 'string') {
@@ -151,20 +169,20 @@ function _applyAttributesFields(data, options) {
 const RESOURCE_IDENTIFIER_PROPS = ['id', 'type', 'meta']
 
 function _applyIncluded(data, cache = {}, options) {
-  if(data) {
+  if (data) {
     Object.defineProperty(data, '_include', {
       enumerable: true,
       value: {}
     })
 
-    for(let type in options) {
+    for (let type in options) {
       let typeOptions = options[type]
       let resourceIdentifiers = data._source
-      if('key' in typeOptions && typeOptions.key.length) {
+      if ('key' in typeOptions && typeOptions.key.length) {
         resourceIdentifiers = get(data._source, typeOptions.key)
       }
 
-      if('alias' in typeOptions) {
+      if ('alias' in typeOptions) {
         resourceIdentifiers = _wrappedAssignAlias(resourceIdentifiers, typeOptions.alias)
       }
 
@@ -173,8 +191,9 @@ function _applyIncluded(data, cache = {}, options) {
       data._include[type] = {}
 
       _forEvery(resourceIdentifiers, resourceId => {
-        Object.assign(data._include[type], {
-          get [resourceId.id]() {
+        Object.defineProperty(data._include[type], resourceId.id, {
+          enumerable: true,
+          get() {
             return get(cache, [type, resourceId.id])
           }
         })
@@ -208,6 +227,10 @@ const _preTransform = _wrapForSingleOrEvery((_data, cache, options) => {
     data.id += ''
   }
 
+  if ('merge' in options) {
+    data = merge(data, options.merge)
+  }
+
   if ('defaults' in options) {
     data = assignDefaults(data, options.defaults)
   }
@@ -222,7 +245,7 @@ const _preTransform = _wrapForSingleOrEvery((_data, cache, options) => {
     }
   })
 
-  if('include' in options) {
+  if ('include' in options) {
     _applyIncluded(data, cache, options.include)
   }
 
@@ -249,7 +272,7 @@ const _applyPagination = _wrapForManyOnly((data, options, body) => {
 
     data = data.slice(offset, end)
 
-    if(!data.length) {
+    if (!data.length) {
       data = null
     }
   } else {
@@ -445,87 +468,54 @@ class JsonApi {
     this._connected[type] = _fetch
   }
 
-  async fetchData(type, options, ...customArgs) {
-    console.log(options);
-    const _fetch = this._connected[type]
+  async fetch(action, type, options, ...args) {
+    const _prefetch = this._connected[type]
 
     let {
       data,
       included
-    } = await _fetch[options.action](options[type], ...customArgs)
+    } = await _prefetch[action](options[type], ...args)
 
-    const _sourceData = data
+    const _indexedCache = {}
 
-    const cache = {}
+    data = _preTransform(data, _indexedCache, options[type])
+    included = _preTransform(included, _indexedCache, options)
 
-    data = _preTransform(data, cache, options[type])
-    included = _preTransform(included, cache, options)
+    _createIndex(data, _indexedCache)
+    _cacheIndex(included, _indexedCache)
 
-    // _createIndex(data, cache)
-    //
-    // const _fetchArgs = Object.keys(cache).map(type => {
-    //   const ids = Object.keys(cache[type])
-    //   const _options = cloneDeep(options)
-    //   set(_options, [type, 'filter', 'id'], ids)
-    //   return [type, _options]
-    // })
-    //
-    // const res = await Promise.all(_fetchArgs.map(args => this.fetchData(...args, ...customArgs)))
-    //
-    // let r = res.reduce((res, fetched) => {
-    //   for (let key in fetched) {
-    //     if (Array.isArray(fetched[key])) {
-    //       if (!res[key]) {
-    //         res[key] = fetched[key]
-    //       } else if (Array.isArray(res[key])) {
-    //         res[key] = [...res[key], ...fetched[key]]
-    //       } else {
-    //         res[key] = [res[key], ...fetched[key]]
-    //       }
-    //     } else {
-    //       if (!res[key]) {
-    //         res[key] = fetched[key]
-    //       } else if (Array.isArray(res[key])) {
-    //         res[key] = [...res[key], fetched[key]]
-    //       } else {
-    //         res[key] = [res[key], fetched[key]]
-    //       }
-    //     }
-    //
-    //     return res
-    //   }
-    // }, {})
-    //
-    // _included.forEach(resource => {
-    //   if('_include' in resource) {
-    //     for(let type in resource) {
-    //       for(let id in resource[type]) {
-    //         set(resource, ['_include', type, id], get(_fetchedIndex, [type, id]))
-    //       }
-    //     }
-    //   }
-    //   return resource
-    // })
+    const _fetchArgs = Object.keys(_indexedCache).map(type => {
+      const typeOptions = cloneDeep(options[type])
 
+      set(typeOptions, 'filter', {
+        id: Object.keys(_indexedCache[type])
+      })
 
-    data = _postTransform(data, options[type])
-    included = _postTransform(included, options)
+      merge(typeOptions, {
+        merge: {
+          type
+        }
+      })
 
-    // console.log(data)
+      return [type, defaults({
+        [type]: typeOptions
+      }, options)]
+    })
+
+    let res = await Promise.all(_fetchArgs.map(fetchArgs => this.fetch(action, ...fetchArgs, ...args)))
+
+    res.forEach(fetched => {
+      _cacheIndex(fetched.data, _indexedCache)
+      _cacheIndex(fetched.included, _indexedCache)
+    })
+
+    data = _postTransform(data, options)
+    included = _postTransform(_extractIndexedCache(_indexedCache), options)
 
     return {
       data,
       included
     }
-  }
-
-  async include(fetched, types, ...customArgs) {
-    if(fetched) {
-      const _fetchedIndex = {}
-
-    }
-
-    return { included: undefined }
   }
 
   async data(type) {

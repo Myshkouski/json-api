@@ -96,45 +96,21 @@ var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-r
 
 var _promise2 = _interopRequireDefault(_promise);
 
-var _regenerator = __webpack_require__(/*! babel-runtime/regenerator */ "babel-runtime/regenerator");
-
-var _regenerator2 = _interopRequireDefault(_regenerator);
-
 var _asyncToGenerator2 = __webpack_require__(/*! babel-runtime/helpers/asyncToGenerator */ "babel-runtime/helpers/asyncToGenerator");
 
 var _asyncToGenerator3 = _interopRequireDefault(_asyncToGenerator2);
 
-var _classCallCheck2 = __webpack_require__(/*! babel-runtime/helpers/classCallCheck */ "babel-runtime/helpers/classCallCheck");
+var _defineProperty = __webpack_require__(/*! babel-runtime/core-js/object/define-property */ "babel-runtime/core-js/object/define-property");
 
-var _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
-
-var _createClass2 = __webpack_require__(/*! babel-runtime/helpers/createClass */ "babel-runtime/helpers/createClass");
-
-var _createClass3 = _interopRequireDefault(_createClass2);
-
-var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
-
-var _keys2 = _interopRequireDefault(_keys);
-
-var _getIterator2 = __webpack_require__(/*! babel-runtime/core-js/get-iterator */ "babel-runtime/core-js/get-iterator");
-
-var _getIterator3 = _interopRequireDefault(_getIterator2);
-
-var _slicedToArray2 = __webpack_require__(/*! babel-runtime/helpers/slicedToArray */ "babel-runtime/helpers/slicedToArray");
-
-var _slicedToArray3 = _interopRequireDefault(_slicedToArray2);
+var _defineProperty2 = _interopRequireDefault(_defineProperty);
 
 var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
 
 var _assign2 = _interopRequireDefault(_assign);
 
-var _typeof2 = __webpack_require__(/*! babel-runtime/helpers/typeof */ "babel-runtime/helpers/typeof");
+var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
 
-var _typeof3 = _interopRequireDefault(_typeof2);
-
-var _toConsumableArray2 = __webpack_require__(/*! babel-runtime/helpers/toConsumableArray */ "babel-runtime/helpers/toConsumableArray");
-
-var _toConsumableArray3 = _interopRequireDefault(_toConsumableArray2);
+var _keys2 = _interopRequireDefault(_keys);
 
 var _json8Patch = __webpack_require__(/*! json8-patch */ "json8-patch");
 
@@ -164,7 +140,11 @@ var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
 
 var _omit2 = _interopRequireDefault(_omit);
 
-var _validate2 = __webpack_require__(/*! ./validate */ "./src/validate.js");
+var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
+
+var _merge2 = _interopRequireDefault(_merge);
+
+var _validate = __webpack_require__(/*! ./validate */ "./src/validate.js");
 
 var _mapValidationErrors = __webpack_require__(/*! ./mapValidationErrors */ "./src/mapValidationErrors.js");
 
@@ -178,87 +158,99 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _wrapForSingleOrEvery(f) {
-  return function () {
-    var _this = this;
-
-    for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-      args[_key] = arguments[_key];
+function _concatenateData(...args) {
+  const array = args.reduce((a, b) => {
+    if (Array.isArray(b)) {
+      return a.concat(b);
+    } else {
+      return a.concat([b]);
     }
+  }, []);
 
-    var data = args[0];
+  return array.length ? array : null;
+}
+
+function _wrapForSingleOrEvery(f) {
+  return function (...args) {
+    const data = args[0];
     if (Array.isArray(data)) {
-      return data.map(function (data) {
-        return f.apply(_this, [data].concat((0, _toConsumableArray3.default)(args.slice(1))));
-      });
-    } else if ((typeof data === 'undefined' ? 'undefined' : (0, _typeof3.default)(data)) == 'object') {
+      return data.map(data => f.apply(this, [data, ...args.slice(1)]));
+    } else if (typeof data == 'object') {
       return f.apply(this, args);
     }
   };
 }
 
 function _wrapForManyOnly(f) {
-  return function () {
-    for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-      args[_key2] = arguments[_key2];
-    }
-
-    var data = args[0];
+  return function (...args) {
+    const data = args[0];
     if (Array.isArray(data)) {
-      return f.apply(this, [data].concat((0, _toConsumableArray3.default)(args.slice(1))));
+      return f.apply(this, [data, ...args.slice(1)]);
     }
 
     return data;
   };
 }
 
-var _cache = _wrapForSingleOrEvery(function (data, cache) {
-  var _data$data = data.data,
-      id = _data$data.id,
-      type = _data$data.type;
+const _forEvery = _wrapForSingleOrEvery((data, f) => f(data));
 
-
-  if (!cache[type]) {
-    cache[type] = {};
+const _createIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
+  for (let type in data._include) {
+    (0, _defaultsDeep2.default)(_indexedCache, {
+      [type]: {}
+    });
+    (0, _keys2.default)(data._include[type]).forEach(id => (0, _set2.default)(_indexedCache, [type, id]));
   }
-
-  cache[type][id] = data;
 });
+
+const _cacheIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
+  (0, _set2.default)(_indexedCache, [data.type, data.id], data);
+});
+
+function _extractIndexedCache(_indexedCache) {
+  const array = [];
+  for (let type in _indexedCache) {
+    const _indexedCacheType = _indexedCache[type];
+    for (let id in _indexedCacheType) {
+      array.push(_indexedCacheType[id]);
+    }
+  }
+  return array;
+}
 
 function assignAlias(data, alias, fullPath) {
   if (typeof alias == 'string') {
-    return (0, _get2.default)(data, alias);
+    return alias.length ? (0, _get2.default)(data, alias) : data;
   } else {
-    var obj = void 0;
-    console.log('!', alias);
+    let obj;
     if (Array.isArray(alias)) {
       obj = [];
-    } else if ((typeof alias === 'undefined' ? 'undefined' : (0, _typeof3.default)(alias)) == 'object') {
-      obj = (0, _assign2.default)({}, data);
     } else {
-      var error = new TypeError('Canot apply dictionary to document');
-      error.doc = data;
-      error.alias = alias;
-      throw error;
+      obj = (0, _assign2.default)({}, data);
     }
 
-    for (var _key3 in alias) {
-      var path = (fullPath || '') + _key3;
+    if (typeof alias == 'object') {
+      for (let key in alias) {
+        const path = (fullPath || '') + key;
 
-      var _alias = alias[_key3];
+        let _alias = alias[key];
 
-      var aliased = assignAlias(data, _alias, path);
+        const aliased = assignAlias(data, _alias, path);
 
-      if (path != _alias) {
-        obj = (0, _omit2.default)(obj, [_alias]);
+        if (path != _alias) {
+          obj = (0, _omit2.default)(obj, [_alias]);
+        }
+
+        (0, _set2.default)(obj, key, aliased);
       }
-
-      (0, _set2.default)(obj, _key3, aliased);
     }
 
     return obj;
   }
 }
+
+const _wrappedAssignAlias = _wrapForSingleOrEvery(assignAlias);
+const _wrappedPick = _wrapForSingleOrEvery(_pick2.default);
 
 function assignDefaults(data, options) {
   return (0, _defaultsDeep2.default)({}, data, options);
@@ -275,16 +267,13 @@ function _sortByNumberOrCharCodes(reverse, a, b) {
 }
 
 function _sortByKey(rule, a, b) {
-  var _rule = (0, _slicedToArray3.default)(rule, 2),
-      key = _rule[0],
-      reverse = _rule[1];
-
+  const [key, reverse] = rule;
   return _sortByNumberOrCharCodes(reverse, (0, _get2.default)(a, key), (0, _get2.default)(b, key));
 }
 
 function _parseSortRules(string) {
-  return string.split(',').map(function (key) {
-    var rule = [];
+  return string.split(',').map(key => {
+    const rule = [];
     if (key[0] == '-') {
       rule[0] = key.slice(1);
       rule[1] = -1;
@@ -292,45 +281,25 @@ function _parseSortRules(string) {
       rule[0] = key;
       rule[1] = 1;
     }
+
     return rule;
   });
 }
 
-function _applySort(data, options) {
-  var rules = _parseSortRules(options);
-  return data.sort(function (a, b) {
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
+const _applySort = _wrapForManyOnly((data, options) => {
+  const rules = _parseSortRules(options);
+  return data.sort((a, b) => {
+    for (let rule of rules) {
+      const res = _sortByKey(rule, a.attributes, b.attributes);
 
-    try {
-      for (var _iterator = (0, _getIterator3.default)(rules), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-        var rule = _step.value;
-
-        var res = _sortByKey(rule, a, b);
-
-        if (res) {
-          return res;
-        }
-      }
-    } catch (err) {
-      _didIteratorError = true;
-      _iteratorError = err;
-    } finally {
-      try {
-        if (!_iteratorNormalCompletion && _iterator.return) {
-          _iterator.return();
-        }
-      } finally {
-        if (_didIteratorError) {
-          throw _iteratorError;
-        }
+      if (res) {
+        return res;
       }
     }
 
     return 0;
   });
-}
+});
 
 function _applyAttributesFields(data, options) {
   options = options.split(',');
@@ -338,20 +307,58 @@ function _applyAttributesFields(data, options) {
   return data;
 }
 
-var resourceMembers = ['id', 'type', 'attributes', 'relationships', 'links', 'meta'];
+const RESOURCE_IDENTIFIER_PROPS = ['id', 'type', 'meta'];
 
-var _preTransform = _wrapForSingleOrEvery(function (_data, options) {
-  var data = _data;
+function _applyIncluded(data, cache = {}, options) {
+  if (data) {
+    Object.defineProperty(data, '_include', {
+      enumerable: true,
+      value: {}
+    });
+
+    for (let type in options) {
+      let typeOptions = options[type];
+      let resourceIdentifiers = data._source;
+      if ('key' in typeOptions && typeOptions.key.length) {
+        resourceIdentifiers = (0, _get2.default)(data._source, typeOptions.key);
+      }
+
+      if ('alias' in typeOptions) {
+        resourceIdentifiers = _wrappedAssignAlias(resourceIdentifiers, typeOptions.alias);
+      }
+
+      resourceIdentifiers = _wrappedPick(resourceIdentifiers, RESOURCE_IDENTIFIER_PROPS);
+
+      data._include[type] = {};
+
+      _forEvery(resourceIdentifiers, resourceId => {
+        (0, _defineProperty2.default)(data._include[type], resourceId.id, {
+          enumerable: true,
+          get() {
+            return (0, _get2.default)(cache, [type, resourceId.id]);
+          }
+        });
+      });
+    }
+  }
+
+  return data;
+}
+
+const resourceMembers = ['id', 'type', 'attributes', 'relationships', 'links', 'meta'];
+
+const _preTransform = _wrapForSingleOrEvery((_data, cache, options) => {
+  let data = _data;
 
   if ('alias' in options) {
     data = assignAlias(data, options.alias);
   }
 
-  var attributes = (0, _omit2.default)(data, resourceMembers);
+  const attributes = (0, _omit2.default)(data, resourceMembers);
 
   if ((0, _keys2.default)(attributes)) {
     (0, _defaultsDeep2.default)(data, {
-      attributes: attributes
+      attributes
     });
   }
 
@@ -359,6 +366,10 @@ var _preTransform = _wrapForSingleOrEvery(function (_data, options) {
 
   if ('id' in data) {
     data.id += '';
+  }
+
+  if ('merge' in options) {
+    data = (0, _merge2.default)(data, options.merge);
   }
 
   if ('defaults' in options) {
@@ -370,39 +381,47 @@ var _preTransform = _wrapForSingleOrEvery(function (_data, options) {
   }
 
   Object.defineProperty(data, '_source', {
-    get: function get() {
+    get() {
       return _data;
     }
   });
 
+  if ('include' in options) {
+    _applyIncluded(data, cache, options.include);
+  }
+
   return data;
 });
 
-function _applyPagination(data, options, body) {
-  var strategy = pagination[options.strategy];
+const _applyPagination = _wrapForManyOnly((data, options, body) => {
+  const strategy = pagination[options.strategy];
 
   if (strategy) {
-    var _strategy$bounds = strategy.bounds(data.length, options.offset, options.limit),
-        offset = _strategy$bounds.offset,
-        end = _strategy$bounds.end;
-
-    ['self', 'first', 'last', 'prev', 'next'].forEach(function (key) {
+    const {
+      offset,
+      end
+    } = strategy.bounds(data.length, options.offset, options.limit);
+    ['self', 'first', 'last', 'prev', 'next'].forEach(key => {
       if (typeof strategy[key] == 'function') {
-        var query = strategy[key](data.length, offset, end, options.limit);
+        const query = strategy[key](data.length, offset, end, options.limit);
 
         // set(body, `links.${ key }`, query)
       }
     });
 
     data = data.slice(offset, end);
+
+    if (!data.length) {
+      data = null;
+    }
   } else {
     throw new ReferenceError('Cannot use pagination strategy:', options.strategy);
   }
 
   return data;
-}
+});
 
-var _postTransform = _wrapForManyOnly(function (data, options, report) {
+const _postTransform = (data, options, report) => {
   if ('sort' in options) {
     data = _applySort(data, options.sort);
   }
@@ -412,234 +431,130 @@ var _postTransform = _wrapForManyOnly(function (data, options, report) {
   }
 
   return data;
-});
+};
 
-var JsonApi = function () {
-  (0, _createClass3.default)(JsonApi, null, [{
-    key: 'validate',
-    value: function () {
-      var _ref = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee() {
-        var ref,
-            body,
-            _args = arguments;
-        return _regenerator2.default.wrap(function _callee$(_context) {
-          while (1) {
-            switch (_context.prev = _context.next) {
-              case 0:
-                ref = '/', body = _args.length <= 0 ? undefined : _args[0];
+class JsonApi {
+  static validate(...args) {
+    return (0, _asyncToGenerator3.default)(function* () {
+      let ref = '/',
+          body = args[0];
+      if (args.length > 1) {
+        ref = args[0];
+        body = args[1];
+      }
 
-                if (_args.length > 1) {
-                  ref = _args.length <= 0 ? undefined : _args[0];
-                  body = _args.length <= 1 ? undefined : _args[1];
-                }
+      try {
+        return yield (0, _validate.validate)(ref, body);
+      } catch (error) {
+        throw {
+          message: `Validation error`,
+          reasons: error.errors.map(_mapValidationErrors2.default)
+        };
+      }
+    })();
+  }
 
-                _context.prev = 2;
-                _context.next = 5;
-                return (0, _validate2.validate)(ref, body);
+  static get(doc, path) {
+    return _json8Patch2.default.get(doc, path);
+  }
 
-              case 5:
-                return _context.abrupt('return', _context.sent);
+  static has(doc, path) {
+    return _json8Patch2.default.has(doc, path);
+  }
 
-              case 8:
-                _context.prev = 8;
-                _context.t0 = _context['catch'](2);
-                throw {
-                  message: 'Validation error',
-                  reasons: _context.t0.errors.map(_mapValidationErrors2.default)
-                };
+  static link(hrefOrLink) {
+    let link = {};
+    if (typeof hrefOrLink == 'string') {
+      link = hrefOrLink;
+    } else if (typeof hrefOrLink == 'object') {
+      link = (0, _cloneDeep2.default)(hrefOrLink);
+    } else {
+      return null;
+    }
 
-              case 11:
-              case 'end':
-                return _context.stop();
-            }
+    return link;
+  }
+
+  static patch(body, ops, options = {}) {
+    return (0, _asyncToGenerator3.default)(function* () {
+      options = (0, _defaultsDeep2.default)({}, options, {
+        reversible: false
+      });
+
+      let res;
+
+      try {
+        try {
+          res = _json8Patch2.default.apply(body, ops, options);
+        } catch (error) {
+          error.detail = `Cannot apply JSON patch`;
+
+          throw error;
+        }
+
+        if (options.validatePatch) {
+          try {
+            yield JsonApi.validate(res.doc);
+          } catch (error) {
+            error.detail = `Document validation failed after patch has been applied`;
+
+            throw error;
           }
-        }, _callee, this, [[2, 8]]);
-      }));
+        }
+      } catch (error) {
+        if (options.reversible) {
+          const reverted = _json8Patch2.default.revert(body, res.revert).doc;
 
-      function validate() {
-        return _ref.apply(this, arguments);
+          error.doc = reverted;
+        }
+
+        error.ops = ops;
+
+        throw error;
       }
 
-      return validate;
-    }()
-  }, {
-    key: 'get',
-    value: function get(doc, path) {
-      return _json8Patch2.default.get(doc, path);
+      return res;
+    })();
+  }
+
+  static add(body, path, value, options) {
+    return (0, _asyncToGenerator3.default)(function* () {
+      const ops = [{
+        op: 'add',
+        path,
+        value
+      }];
+
+      return yield JsonApi.patch(body, ops, options);
+    })();
+  }
+
+  static getSchemas() {
+    const schemas = (0, _validate.getSchemas)();
+
+    if (options.id == 'index') {
+      schema.id = index;
+    } else {
+      schema.id = schemas[key][options.id];
     }
-  }, {
-    key: 'has',
-    value: function has(doc, path) {
-      return _json8Patch2.default.has(doc, path);
-    }
-  }, {
-    key: 'link',
-    value: function link(hrefOrLink) {
-      var link = {};
-      if (typeof hrefOrLink == 'string') {
-        link = hrefOrLink;
-      } else if ((typeof hrefOrLink === 'undefined' ? 'undefined' : (0, _typeof3.default)(hrefOrLink)) == 'object') {
-        link = (0, _cloneDeep2.default)(hrefOrLink);
-      } else {
-        return null;
-      }
 
-      return link;
-    }
-  }, {
-    key: 'patch',
-    value: function () {
-      var _ref2 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(body, ops) {
-        var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-        var res, reverted;
-        return _regenerator2.default.wrap(function _callee2$(_context2) {
-          while (1) {
-            switch (_context2.prev = _context2.next) {
-              case 0:
-                options = (0, _defaultsDeep2.default)({}, options, {
-                  reversible: false
-                });
+    schema.type = options.type;
 
-                res = void 0;
-                _context2.prev = 2;
-                _context2.prev = 3;
+    schema.id = key;
+    schema.attributes = (0, _cloneDeep2.default)(schemas[key]);
 
-                res = _json8Patch2.default.apply(body, ops, options);
-                _context2.next = 11;
-                break;
+    array.push(schema);
 
-              case 7:
-                _context2.prev = 7;
-                _context2.t0 = _context2['catch'](3);
+    return array;
+  }
 
-                _context2.t0.detail = 'Cannot apply JSON patch';
-
-                throw _context2.t0;
-
-              case 11:
-                if (!options.validatePatch) {
-                  _context2.next = 21;
-                  break;
-                }
-
-                _context2.prev = 12;
-                _context2.next = 15;
-                return JsonApi.validate(res.doc);
-
-              case 15:
-                _context2.next = 21;
-                break;
-
-              case 17:
-                _context2.prev = 17;
-                _context2.t1 = _context2['catch'](12);
-
-                _context2.t1.detail = 'Document validation failed after patch has been applied';
-
-                throw _context2.t1;
-
-              case 21:
-                _context2.next = 28;
-                break;
-
-              case 23:
-                _context2.prev = 23;
-                _context2.t2 = _context2['catch'](2);
-
-                if (options.reversible) {
-                  reverted = _json8Patch2.default.revert(body, res.revert).doc;
-
-
-                  _context2.t2.doc = reverted;
-                }
-
-                _context2.t2.ops = ops;
-
-                throw _context2.t2;
-
-              case 28:
-                return _context2.abrupt('return', res);
-
-              case 29:
-              case 'end':
-                return _context2.stop();
-            }
-          }
-        }, _callee2, this, [[2, 23], [3, 7], [12, 17]]);
-      }));
-
-      function patch(_x2, _x3) {
-        return _ref2.apply(this, arguments);
-      }
-
-      return patch;
-    }()
-  }, {
-    key: 'add',
-    value: function () {
-      var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee3(body, path, value, options) {
-        var ops;
-        return _regenerator2.default.wrap(function _callee3$(_context3) {
-          while (1) {
-            switch (_context3.prev = _context3.next) {
-              case 0:
-                ops = [{
-                  op: 'add',
-                  path: path,
-                  value: value
-                }];
-                _context3.next = 3;
-                return JsonApi.patch(body, ops, options);
-
-              case 3:
-                return _context3.abrupt('return', _context3.sent);
-
-              case 4:
-              case 'end':
-                return _context3.stop();
-            }
-          }
-        }, _callee3, this);
-      }));
-
-      function add(_x4, _x5, _x6, _x7) {
-        return _ref3.apply(this, arguments);
-      }
-
-      return add;
-    }()
-  }, {
-    key: 'getSchemas',
-    value: function getSchemas() {
-      var schemas = (0, _validate2.getSchemas)();
-
-      if (options.id == 'index') {
-        schema.id = index;
-      } else {
-        schema.id = schemas[key][options.id];
-      }
-
-      schema.type = options.type;
-
-      schema.id = key;
-      schema.attributes = (0, _cloneDeep2.default)(schemas[key]);
-
-      array.push(schema);
-
-      return array;
-    }
-  }]);
-
-  function JsonApi() {
-    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-    (0, _classCallCheck3.default)(this, JsonApi);
-
+  constructor(options = {}) {
     this.options = {};
     this._connected = {};
 
     if ('body' in options) {
-      if ((0, _typeof3.default)(options.body) != 'object') {
-        throw new Error('\'options.body\' should be a JSON object');
+      if (typeof options.body != 'object') {
+        throw new Error(`'options.body' should be a JSON object`);
       }
       this.body = options.body;
     } else {
@@ -648,7 +563,7 @@ var JsonApi = function () {
 
     if ('validatePatch' in options) {
       if (typeof options.validatePatch != 'boolean') {
-        throw new Error('\'options.validatePatch\' should be \'true\' or \'false\'');
+        throw new Error(`'options.validatePatch' should be 'true' or 'false'`);
       }
       this.options.validatePatch = options.validatePatch;
     } else {
@@ -656,299 +571,122 @@ var JsonApi = function () {
     }
   }
 
-  (0, _createClass3.default)(JsonApi, [{
-    key: "get",
-    value: function get(path) {
-      return JsonApi.get(this.body, path);
-    }
-  }, {
-    key: 'has',
-    value: function has(path) {
-      return JsonApi.has(this.body, path);
-    }
-  }, {
-    key: 'validate',
-    value: function () {
-      var _ref4 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee4() {
-        return _regenerator2.default.wrap(function _callee4$(_context4) {
-          while (1) {
-            switch (_context4.prev = _context4.next) {
-              case 0:
-                _context4.next = 2;
-                return JsonApi.validate(this.body);
-
-              case 2:
-                return _context4.abrupt('return', _context4.sent);
-
-              case 3:
-              case 'end':
-                return _context4.stop();
-            }
-          }
-        }, _callee4, this);
-      }));
-
-      function validate() {
-        return _ref4.apply(this, arguments);
-      }
-
-      return validate;
-    }()
-  }, {
-    key: 'patch',
-    value: function () {
-      var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5(ops) {
-        return _regenerator2.default.wrap(function _callee5$(_context5) {
-          while (1) {
-            switch (_context5.prev = _context5.next) {
-              case 0:
-                _context5.next = 2;
-                return JsonApi.patch(this.body, ops, this.options);
-
-              case 2:
-                return _context5.abrupt('return', _context5.sent);
-
-              case 3:
-              case 'end':
-                return _context5.stop();
-            }
-          }
-        }, _callee5, this);
-      }));
-
-      function patch(_x9) {
-        return _ref5.apply(this, arguments);
-      }
-
-      return patch;
-    }()
-  }, {
-    key: 'add',
-    value: function () {
-      var _ref6 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee6(path, value) {
-        return _regenerator2.default.wrap(function _callee6$(_context6) {
-          while (1) {
-            switch (_context6.prev = _context6.next) {
-              case 0:
-                _context6.next = 2;
-                return JsonApi.add(this.body, path, value, this.options);
-
-              case 2:
-                return _context6.abrupt('return', _context6.sent);
-
-              case 3:
-              case 'end':
-                return _context6.stop();
-            }
-          }
-        }, _callee6, this);
-      }));
-
-      function add(_x10, _x11) {
-        return _ref6.apply(this, arguments);
-      }
-
-      return add;
-    }()
-  }, {
-    key: 'connect',
-    value: function connect(type, fetch) {
-      var keys = ['create', 'read', 'update', 'delete'];
-      var _createTypeError = function _createTypeError() {
-        return new TypeError('Invalid argument type for fetch');
-      };
-      var _fetch = {};
-      if (fetch instanceof Function) {
-        keys.forEach(function (key) {
-          return _fetch[key] = fetch;
-        });
-      } else if (fetch instanceof Object) {
-        keys.forEach(function (key) {
-          if (!_fetch[key] instanceof Function) {
-            throw _createTypeError();
-          }
-          _fetch[key] = fetch[key];
-        });
-      } else {
-        throw _createTypeError();
-      }
-
-      this._connected[type] = _fetch;
-    }
-  }, {
-    key: 'fetchData',
-    value: function () {
-      var _ref7 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee7(type, options) {
-        var _fetch, _ref8, data, included, _sourceData;
-
-        return _regenerator2.default.wrap(function _callee7$(_context7) {
-          while (1) {
-            switch (_context7.prev = _context7.next) {
-              case 0:
-                _fetch = this._connected[type];
-                _context7.next = 3;
-                return _fetch[options.action](options);
-
-              case 3:
-                _ref8 = _context7.sent;
-                data = _ref8.data;
-                included = _ref8.included;
-                _sourceData = data;
-
-                // const cache = {
-                //   data: {},
-                //   included: {}
-                // }
-
-                data = _preTransform(data, options);
-                included = _preTransform(included, options);
-
-                // _cache(data, cache.data)
-                // _cache(included, cache.included)
-
-                data = _postTransform(data, options);
-                included = _postTransform(included, options);
-
-                // console.log(data)
-
-                return _context7.abrupt('return', {
-                  data: data,
-                  included: included
-                });
-
-              case 12:
-              case 'end':
-                return _context7.stop();
-            }
-          }
-        }, _callee7, this);
-      }));
-
-      function fetchData(_x12, _x13) {
-        return _ref7.apply(this, arguments);
-      }
-
-      return fetchData;
-    }()
-  }, {
-    key: 'include',
-    value: function () {
-      var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(fetched, types) {
-        var _this2 = this;
-
-        var res, cache, _res$reduce, data, included;
-
-        return _regenerator2.default.wrap(function _callee8$(_context8) {
-          while (1) {
-            switch (_context8.prev = _context8.next) {
-              case 0:
-                _context8.next = 2;
-                return _promise2.default.all((0, _keys2.default)(types).map(function (type) {
-                  return _this2.fetchData(type, types[type]);
-                }));
-
-              case 2:
-                res = _context8.sent;
-                cache = {};
-
-                _cache(data, cache);
-
-                _res$reduce = res.reduce(function (res, fetched) {
-                  for (var _key4 in fetched) {
-                    if (Array.isArray(fetched[_key4])) {
-                      if (!res[_key4]) {
-                        res[_key4] = fetched[_key4];
-                      } else if (Array.isArray(res[_key4])) {
-                        res[_key4] = [].concat((0, _toConsumableArray3.default)(res[_key4]), (0, _toConsumableArray3.default)(fetched[_key4]));
-                      } else {
-                        res[_key4] = [res[_key4]].concat((0, _toConsumableArray3.default)(fetched[_key4]));
-                      }
-                    } else {
-                      if (!res[_key4]) {
-                        res[_key4] = fetched[_key4];
-                      } else if (Array.isArray(res[_key4])) {
-                        res[_key4] = [].concat((0, _toConsumableArray3.default)(res[_key4]), [fetched[_key4]]);
-                      } else {
-                        res[_key4] = [res[_key4], fetched[_key4]];
-                      }
-                    }
-
-                    return res;
-                  }
-                }, {}), data = _res$reduce.data, included = _res$reduce.included;
-                return _context8.abrupt('return', {
-                  data: data,
-                  included: included
-                });
-
-              case 7:
-              case 'end':
-                return _context8.stop();
-            }
-          }
-        }, _callee8, this);
-      }));
-
-      function include(_x14, _x15) {
-        return _ref9.apply(this, arguments);
-      }
-
-      return include;
-    }()
-  }, {
-    key: 'data',
-    value: function () {
-      var _ref10 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9(type) {
-        return _regenerator2.default.wrap(function _callee9$(_context9) {
-          while (1) {
-            switch (_context9.prev = _context9.next) {
-              case 0:
-              case 'end':
-                return _context9.stop();
-            }
-          }
-        }, _callee9, this);
-      }));
-
-      function data(_x16) {
-        return _ref10.apply(this, arguments);
-      }
-
-      return data;
-    }()
-  }]);
-  return JsonApi;
-}();
-
-/**
-await jsonapi.fetch('collection', {
-  action: 'read',
-  sort: ['name', '-records'],
-  filter: { ... },
-  fields: ['name', 'records'],
-  page: {
-    limit: 1000
-  },
-  alias: {
-    id: '_id'
+  "get"(path) {
+    return JsonApi.get(this.body, path);
   }
-}) == {
-  data, originalData
+
+  has(path) {
+    return JsonApi.has(this.body, path);
+  }
+
+  validate() {
+    var _this = this;
+
+    return (0, _asyncToGenerator3.default)(function* () {
+      return yield JsonApi.validate(_this.body);
+    })();
+  }
+
+  patch(ops) {
+    var _this2 = this;
+
+    return (0, _asyncToGenerator3.default)(function* () {
+      return yield JsonApi.patch(_this2.body, ops, _this2.options);
+    })();
+  }
+
+  add(path, value) {
+    var _this3 = this;
+
+    return (0, _asyncToGenerator3.default)(function* () {
+      return yield JsonApi.add(_this3.body, path, value, _this3.options);
+    })();
+  }
+
+  connect(type, fetch) {
+    const keys = ['create', 'read', 'update', 'delete'];
+    const _createTypeError = () => new TypeError('Invalid argument type for fetch');
+    const _fetch = {};
+    if (fetch instanceof Function) {
+      keys.forEach(key => _fetch[key] = fetch);
+    } else if (fetch instanceof Object) {
+      keys.forEach(key => {
+        if (!_fetch[key] instanceof Function) {
+          throw _createTypeError();
+        }
+        _fetch[key] = fetch[key];
+      });
+    } else {
+      throw _createTypeError();
+    }
+
+    this._connected[type] = _fetch;
+  }
+
+  fetch(action, type, options, ...args) {
+    var _this4 = this;
+
+    return (0, _asyncToGenerator3.default)(function* () {
+      const _prefetch = _this4._connected[type];
+
+      let {
+        data,
+        included
+      } = yield _prefetch[action](options[type], ...args);
+
+      const _indexedCache = {};
+
+      data = _preTransform(data, _indexedCache, options[type]);
+      included = _preTransform(included, _indexedCache, options);
+
+      _createIndex(data, _indexedCache);
+      _cacheIndex(included, _indexedCache);
+
+      const _fetchArgs = (0, _keys2.default)(_indexedCache).map(function (type) {
+        const typeOptions = (0, _cloneDeep2.default)(options[type]);
+
+        (0, _set2.default)(typeOptions, 'filter', {
+          id: (0, _keys2.default)(_indexedCache[type])
+        });
+
+        (0, _merge2.default)(typeOptions, {
+          merge: {
+            type
+          }
+        });
+
+        return [type, (0, _defaultsDeep2.default)({
+          [type]: typeOptions
+        }, options)];
+      });
+
+      let res = yield _promise2.default.all(_fetchArgs.map(function (fetchArgs) {
+        return _this4.fetch(action, ...fetchArgs, ...args);
+      }));
+
+      res.forEach(function (fetched) {
+        _cacheIndex(fetched.data, _indexedCache);
+        _cacheIndex(fetched.included, _indexedCache);
+      });
+
+      data = _postTransform(data, options);
+      included = _postTransform(_extractIndexedCache(_indexedCache), options);
+
+      return {
+        data,
+        included
+      };
+    })();
+  }
+
+  data(type) {
+    return (0, _asyncToGenerator3.default)(function* () {})();
+  }
 }
 
-await jsonapi.include({
-  owner: {
-    alias: {
-      id: '_id'
-    },
-    fields: ['name']
-  }
-})
-*/
-
-// function _cachePendingResources(data, cache) {
+// function _createIndexPendingResources(data, cache) {
 //   if (Array.isArray(data)) {
-//     data.forEach(data => _cachePendingResources(data, cache))
+//     data.forEach(data => _createIndexPendingResources(data, cache))
 //   } else if (typeof data == 'object') {
 //     const {
 //       id,
@@ -1006,13 +744,11 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-exports.default = function (error) {
-  return {
-    message: error.message,
-    path: error.dataPath,
-    schema: error.parentSchema.$id
-  };
-};
+exports.default = error => ({
+  message: error.message,
+  path: error.dataPath,
+  schema: error.parentSchema.$id
+});
 
 module.exports = exports["default"];
 
@@ -1031,7 +767,7 @@ module.exports = exports["default"];
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-var parsePaginationQueryParam = function parsePaginationQueryParam(param) {
+const parsePaginationQueryParam = param => {
   param = parseInt(param);
 
   if (isNaN(param)) {
@@ -1043,7 +779,7 @@ var parsePaginationQueryParam = function parsePaginationQueryParam(param) {
   return param;
 };
 
-var tranformPaginationQuery = function tranformPaginationQuery(length, offset, limit) {
+const tranformPaginationQuery = (length, offset, limit) => {
   offset = parsePaginationQueryParam(offset);
   limit = parsePaginationQueryParam(limit);
 
@@ -1064,14 +800,14 @@ var tranformPaginationQuery = function tranformPaginationQuery(length, offset, l
   }
 
   return {
-    offset: offset,
-    limit: limit
+    offset,
+    limit
   };
 };
 
-var offset = exports.offset = {
-  limit: function limit(clientLimit, serverLimit) {
-    var limit = parsePaginationQueryParam(clientLimit);
+const offset = exports.offset = {
+  limit(clientLimit, serverLimit) {
+    let limit = parsePaginationQueryParam(clientLimit);
 
     if (limit >= 1 && limit < serverLimit) {
       limit = Math.floor(limit);
@@ -1083,75 +819,81 @@ var offset = exports.offset = {
 
     return limit;
   },
-  bounds: function bounds(length, _offset, _limit) {
-    var _tranformPaginationQu = tranformPaginationQuery(length, _offset, _limit),
-        offset = _tranformPaginationQu.offset,
-        limit = _tranformPaginationQu.limit;
+
+  bounds(length, _offset, _limit) {
+    const {
+      offset,
+      limit
+    } = tranformPaginationQuery(length, _offset, _limit);
 
     return {
-      offset: offset,
+      offset,
       end: offset + limit
     };
   },
-  self: function self(length, _offset, _end, _limit) {
-    var _tranformPaginationQu2 = tranformPaginationQuery(length, _offset, _limit),
-        offset = _tranformPaginationQu2.offset,
-        limit = _tranformPaginationQu2.limit;
+  self(length, _offset, _end, _limit) {
+    const {
+      offset,
+      limit
+    } = tranformPaginationQuery(length, _offset, _limit);
 
     return {
       page: {
-        offset: offset,
-        limit: limit
+        offset,
+        limit
       }
     };
   },
-  next: function next(length, _offset, _end, _limit) {
-    var _tranformPaginationQu3 = tranformPaginationQuery(length, _end, _limit),
-        offset = _tranformPaginationQu3.offset,
-        limit = _tranformPaginationQu3.limit;
+  next(length, _offset, _end, _limit) {
+    const {
+      offset,
+      limit
+    } = tranformPaginationQuery(length, _end, _limit);
 
     if (!limit) {
       return null;
     }
 
     return {
-      offset: offset,
-      limit: limit
+      offset,
+      limit
     };
   },
-
-  prev: function prev(length, _offset, _end, _limit) {
-    var _tranformPaginationQu4 = tranformPaginationQuery(_offset, _offset - _limit, _limit),
-        offset = _tranformPaginationQu4.offset,
-        limit = _tranformPaginationQu4.limit;
+  prev: (length, _offset, _end, _limit) => {
+    const {
+      offset,
+      limit
+    } = tranformPaginationQuery(_offset, _offset - _limit, _limit);
 
     if (!limit) {
       return null;
     }
 
     return {
-      offset: offset,
-      limit: limit
+      offset,
+      limit
     };
   },
-  first: function first(length, _offset, _end, _limit) {
-    var _tranformPaginationQu5 = tranformPaginationQuery(length, 0, _limit > length ? length : _limit > _offset && _offset > 0 ? _offset : _limit),
-        offset = _tranformPaginationQu5.offset,
-        limit = _tranformPaginationQu5.limit;
+  first: (length, _offset, _end, _limit) => {
+    const {
+      offset,
+      limit
+    } = tranformPaginationQuery(length, 0, _limit > length ? length : _limit > _offset && _offset > 0 ? _offset : _limit);
 
     return {
-      offset: offset,
+      offset,
       limit: _limit
     };
   },
-  last: function last(length, _offset, _end, _limit) {
-    var _tranformPaginationQu6 = tranformPaginationQuery(length, 2 * _limit < length ? length - _limit : _limit < length ? _end + _limit < length ? _end : length - _limit : 0, _limit),
-        offset = _tranformPaginationQu6.offset,
-        limit = _tranformPaginationQu6.limit;
+  last: (length, _offset, _end, _limit) => {
+    const {
+      offset,
+      limit
+    } = tranformPaginationQuery(length, 2 * _limit < length ? length - _limit : _limit < length ? _end + _limit < length ? _end : length - _limit : 0, _limit);
 
     return {
-      offset: offset,
-      limit: limit
+      offset,
+      limit
     };
   }
 };
@@ -1438,7 +1180,7 @@ var _schemas2 = _interopRequireDefault(_schemas);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var ajv = new _ajv2.default({
+const ajv = new _ajv2.default({
   schemas: _schemas2.default,
   verbose: true,
   allErrors: true,
@@ -1446,16 +1188,12 @@ var ajv = new _ajv2.default({
 });
 (0, _ajvErrors2.default)(ajv, {});
 
-var validate = exports.validate = function validate(ref, data) {
-  return ajv.validate(ref, data);
-};
-var addSchema = exports.addSchema = function addSchema(schemas) {
-  return ajv.addShema(schema);
-};
-var getSchemas = exports.getSchemas = function getSchemas(refs) {
-  var schemas = {};
+const validate = exports.validate = (ref, data) => ajv.validate(ref, data);
+const addSchema = exports.addSchema = schemas => ajv.addShema(schema);
+const getSchemas = exports.getSchemas = refs => {
+  const schemas = {};
 
-  for (var key in ajv._schemas) {
+  for (let key in ajv._schemas) {
     schemas[key] = ajv._schemas[key].schema;
   }
 
@@ -1486,17 +1224,6 @@ module.exports = require("ajv-errors");
 
 /***/ }),
 
-/***/ "babel-runtime/core-js/get-iterator":
-/*!*****************************************************!*\
-  !*** external "babel-runtime/core-js/get-iterator" ***!
-  \*****************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/get-iterator");
-
-/***/ }),
-
 /***/ "babel-runtime/core-js/object/assign":
 /*!******************************************************!*\
   !*** external "babel-runtime/core-js/object/assign" ***!
@@ -1505,6 +1232,17 @@ module.exports = require("babel-runtime/core-js/get-iterator");
 /***/ (function(module, exports) {
 
 module.exports = require("babel-runtime/core-js/object/assign");
+
+/***/ }),
+
+/***/ "babel-runtime/core-js/object/define-property":
+/*!***************************************************************!*\
+  !*** external "babel-runtime/core-js/object/define-property" ***!
+  \***************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("babel-runtime/core-js/object/define-property");
 
 /***/ }),
 
@@ -1538,72 +1276,6 @@ module.exports = require("babel-runtime/core-js/promise");
 /***/ (function(module, exports) {
 
 module.exports = require("babel-runtime/helpers/asyncToGenerator");
-
-/***/ }),
-
-/***/ "babel-runtime/helpers/classCallCheck":
-/*!*******************************************************!*\
-  !*** external "babel-runtime/helpers/classCallCheck" ***!
-  \*******************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/helpers/classCallCheck");
-
-/***/ }),
-
-/***/ "babel-runtime/helpers/createClass":
-/*!****************************************************!*\
-  !*** external "babel-runtime/helpers/createClass" ***!
-  \****************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/helpers/createClass");
-
-/***/ }),
-
-/***/ "babel-runtime/helpers/slicedToArray":
-/*!******************************************************!*\
-  !*** external "babel-runtime/helpers/slicedToArray" ***!
-  \******************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/helpers/slicedToArray");
-
-/***/ }),
-
-/***/ "babel-runtime/helpers/toConsumableArray":
-/*!**********************************************************!*\
-  !*** external "babel-runtime/helpers/toConsumableArray" ***!
-  \**********************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/helpers/toConsumableArray");
-
-/***/ }),
-
-/***/ "babel-runtime/helpers/typeof":
-/*!***********************************************!*\
-  !*** external "babel-runtime/helpers/typeof" ***!
-  \***********************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/helpers/typeof");
-
-/***/ }),
-
-/***/ "babel-runtime/regenerator":
-/*!********************************************!*\
-  !*** external "babel-runtime/regenerator" ***!
-  \********************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/regenerator");
 
 /***/ }),
 
@@ -1648,6 +1320,17 @@ module.exports = require("lodash/defaultsDeep");
 /***/ (function(module, exports) {
 
 module.exports = require("lodash/get");
+
+/***/ }),
+
+/***/ "lodash/merge":
+/*!*******************************!*\
+  !*** external "lodash/merge" ***!
+  \*******************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("lodash/merge");
 
 /***/ }),
 
