@@ -15,6 +15,134 @@ import mapValidationErrors from './mapValidationErrors'
 
 import * as pagination from './paginationStrategies'
 
+class IndexedCache {
+  constructor() {
+    Object.defineProperty(this, '_cache', {
+      enumerable: true,
+      value: {}
+    })
+  }
+
+  set(path, value) {
+    set(this._cache, path, value)
+
+    return this
+  }
+
+  get(path) {
+    return get(this._cache, path)
+  }
+}
+
+class LinkedIndexedCache extends IndexedCache {
+  constructor(indexedCache) {
+    super()
+
+    if(!indexedCache instanceof IndexedCache) {
+      throw TypeError('First arguments should be an instance of IndexedCache')
+    }
+
+    Object.defineProperty(this, '_linked', {
+      // enumerable: true,
+      value: indexedCache
+    })
+  }
+
+  set(path, value) {
+    const split = path.split('.')
+    const prop = split.pop()
+    let target
+
+    if (split.length) {
+      target = {}
+      set(this._cache, split, target)
+    } else {
+      target = this._cache
+    }
+
+    Object.defineProperty(target, prop, {
+      enumerable: true,
+      set: value => {
+        this._linked.set(path, value)
+      },
+      get: () => this._linked.get(path)
+    })
+
+    target[prop] = value
+  }
+}
+
+function _transformTreePath(path) {
+  const split = path.split('.')
+
+  return split.slice(0, -1).reduce((split, key) => {
+    split.push(key)
+    split.push('then')
+    return split
+  }, []).concat(split.slice(-1))
+}
+
+function _createNode(run, then) {
+  return {
+    run,
+    then
+  }
+}
+
+function _createPromiseTree(paths) {
+  const then = {}
+
+  for (let path in paths) {
+    set(then, _transformTreePath(path), _createNode(paths[path], null))
+  }
+
+  const rootNode = _createNode(result => result, then)
+
+  return rootNode
+}
+
+async function _runPromiseTree(result, node, rootNode = node) {
+  if(rootNode.rejected) {
+    throw 'cancelled'
+  }
+
+  try {
+    if (node) {
+      await node.run(result)
+
+      if (node.then) {
+        const keys = Object.keys(node.then)
+
+        await Promise.all(keys.map(key => _runPromiseTree(result, node.then[key], rootNode)))
+      }
+
+      return result
+    }
+  } catch(error) {
+    node.rejected = true
+    throw error
+  }
+}
+
+class PromiseTree {
+  constructor(paths) {
+    const _tree = _createPromiseTree(paths)
+
+    Object.defineProperty(this, '_tree', {
+      value: _tree
+    })
+  }
+
+  static async run(paths, data) {
+    const promiseTree = new PromiseTree(paths)
+    return await promiseTree.run(data)
+  }
+
+  async run(data) {
+    return await _runPromiseTree(data, this._tree)
+  }
+}
+
 function _concatenateData(...args) {
   const array = args.reduce((a, b) => {
     if (Array.isArray(b)) {
@@ -66,9 +194,9 @@ const _cacheIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
 
 function _extractIndexedCache(_indexedCache) {
   const array = []
-  for(let type in _indexedCache) {
+  for (let type in _indexedCache) {
     const _indexedCacheType = _indexedCache[type]
-    for(let id in _indexedCacheType) {
+    for (let id in _indexedCacheType) {
       array.push(_indexedCacheType[id])
     }
   }
@@ -171,7 +299,7 @@ const RESOURCE_IDENTIFIER_PROPS = ['id', 'type', 'meta']
 function _applyIncluded(data, cache = {}, options) {
   if (data) {
     Object.defineProperty(data, '_include', {
-      enumerable: true,
+      // enumerable: true,
       value: {}
     })
 
@@ -292,6 +420,14 @@ const _postTransform = (data, options, report) => {
   }
 
   return data
+}
+
+function _mergeType(type, options) {
+  return merge({}, options, {
+    merge: {
+      type
+    }
+  })
 }
 
 class JsonApi {
@@ -469,32 +605,17 @@ class JsonApi {
   }
 
   async fetch(action, type, options, ...args) {
-    const _prefetch = this._connected[type]
-
     let {
       data,
-      included
-    } = await _prefetch[action](options[type], ...args)
-
-    const _indexedCache = {}
-
-    data = _preTransform(data, _indexedCache, options[type])
-    included = _preTransform(included, _indexedCache, options)
-
-    _createIndex(data, _indexedCache)
-    _cacheIndex(included, _indexedCache)
+      included,
+      _indexedCache
+    } = await prefetch.call(this, action, type, options, ...args)
 
     const _fetchArgs = Object.keys(_indexedCache).map(type => {
-      const typeOptions = cloneDeep(options[type])
+      const typeOptions = _mergeType(type, options[type])
 
       set(typeOptions, 'filter', {
         id: Object.keys(_indexedCache[type])
-      })
-
-      merge(typeOptions, {
-        merge: {
-          type
-        }
       })
 
       return [type, defaults({
@@ -502,11 +623,11 @@ class JsonApi {
       }, options)]
     })
 
-    let res = await Promise.all(_fetchArgs.map(fetchArgs => this.fetch(action, ...fetchArgs, ...args)))
+    const res = await Promise.all(_fetchArgs.map(fetchArgs => prefetch.call(this, action, ...fetchArgs, ...args)))
 
     res.forEach(fetched => {
       _cacheIndex(fetched.data, _indexedCache)
-      _cacheIndex(fetched.included, _indexedCache)
+      // _cacheIndex(fetched.included, _indexedCache)
     })
 
     data = _postTransform(data, options)
@@ -517,51 +638,60 @@ class JsonApi {
       included
     }
   }
+}
 
-  async data(type) {
+async function prefetch(action, type, options, ...args) {
+  const _prefetch = get(this._connected, [type, action])
 
+  const typeOptions = _mergeType(type, options[type])
+
+  let included
+
+  let {
+    data,
+    // included
+  } = await _prefetch(typeOptions, ...args)
+
+  const _indexedCache = {}
+
+  data = _preTransform(data, _indexedCache, typeOptions)
+  // included = _preTransform(included, _indexedCache, options)
+
+  _createIndex(data, _indexedCache)
+  // _cacheIndex(included, _indexedCache)
+
+  return {
+    data,
+    // included,
+    _indexedCache
   }
 }
 
-// function _createIndexPendingResources(data, cache) {
-//   if (Array.isArray(data)) {
-//     data.forEach(data => _createIndexPendingResources(data, cache))
-//   } else if (typeof data == 'object') {
-//     const {
-//       id,
-//       type
-//     } = data
-//
-//     if (!cache[type]) {
-//       cache[type] = []
-//     }
-//
-//     cache[type].push(id)
-//   }
-// }
+async function include(action, type, options, ...args) {
+  const _include = get(this._connected, [type, action])
 
-// function _extractPendingResourceTypeIds(type, cache) {
-//   if (!cache[type]) {
-//     return []
-//   }
-//
-//   const _typeCache = cache[type]
-//
-//   delete cache[type]
-//
-//   return _typeCache
-// }
+  const typeOptions = _mergeType(type, options[type])
 
-// function _filterCachedIds(type, ids, cache) {
-//   return ids.filter(id => {
-//     const type = cache[type]
-//
-//     if (type && type[id]) {
-//       return false
-//     }
-//
-//     return true
-//   })
-// }
+  let included
+
+  let {
+    data,
+    // included
+  } = await _prefetch(typeOptions, ...args)
+
+  const _indexedCache = {}
+
+  data = _preTransform(data, _indexedCache, typeOptions)
+  // included = _preTransform(included, _indexedCache, options)
+
+  _createIndex(data, _indexedCache)
+  // _cacheIndex(included, _indexedCache)
+
+  return {
+    data,
+    // included,
+    _indexedCache
+  }
+}
 
 export default JsonApi

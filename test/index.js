@@ -68,7 +68,6 @@ describe('Instance Methods', () => {
 
   beforeEach(() => {
     jsonapi = new JsonApi()
-    resourceName = 'collections'
     const _wrap = f => function(options) {
       let {
         data,
@@ -112,17 +111,20 @@ describe('Instance Methods', () => {
       const data = [{
           _id: 1,
           action: 'create',
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          cols: [1]
         },
         {
           _id: 2,
           action: 'read',
-          timestamp: Date.now() + 1 * 1000
+          timestamp: Date.now() + 1 * 1000,
+          cols: [1]
         },
         {
           _id: 3,
           action: 'update',
-          timestamp: Date.now() + 2 * 1000
+          timestamp: Date.now() + 2 * 1000,
+          cols: [2]
         }
       ]
 
@@ -142,14 +144,14 @@ describe('Instance Methods', () => {
 
   describe('#fetchData', () => {
     it('should return internal data representation', async () => {
-      jsonapi.connect(resourceName, fetchCollection)
+      jsonapi.connect('collections', fetchCollection)
       jsonapi.connect('ops', fetchOps)
 
       const {
         data,
         included
-      } = await jsonapi.fetch('read', resourceName, {
-        [resourceName]: {
+      } = await jsonapi.fetch('read', 'collections', {
+        collections: {
           alias: {
             'id': '_id'
           },
@@ -177,17 +179,25 @@ describe('Instance Methods', () => {
             'id': '_id'
           },
           fields: 'timestamp',
-          sort: '-timestamp'
+          sort: '-timestamp',
+          // include: {
+          //   collections: {
+          //     key: 'cols',
+          //     alias: {
+          //       'id': ''
+          //     }
+          //   }
+          // }
         }
       })
 
-      console.dir(data, {
-        depth: Infinity
-      })
-
-      console.dir(included, {
-        depth: Infinity
-      })
+      // console.dir(data, {
+      //   depth: Infinity
+      // })
+      //
+      // console.dir(included, {
+      //   depth: Infinity
+      // })
     })
   })
 })
