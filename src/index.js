@@ -73,7 +73,15 @@ class LinkedIndexedCache extends IndexedCache {
 }
 
 function _transformTreePath(path) {
-  const split = path.split('.')
+  let split
+
+  if(Array.isArray(path)) {
+    split = path
+  } else if(typeof path == 'string') {
+    split = path.split('.')
+  } else {
+    throw TypeError('Path should be a string or array')
+  }
 
   return split.slice(0, -1).reduce((split, key) => {
     split.push(key)
@@ -179,7 +187,7 @@ function _wrapForManyOnly(f) {
 
 const _forEvery = _wrapForSingleOrEvery((data, f) => f(data))
 
-const _createIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
+const _createIndex = _wrapForSingleOrEvery((data, _indexedCache) => {
   for (let type in data._include) {
     defaults(_indexedCache, {
       [type]: {}
@@ -368,11 +376,17 @@ const _preTransform = _wrapForSingleOrEvery((_data, cache, options) => {
   }
 
   Object.defineProperty(data, '_source', {
-    get() {
-      return _data
-    }
+    value: _data
   })
 
+  // if ('include' in options) {
+  //   _applyIncluded(data, cache, options.include)
+  // }
+
+  return data
+})
+
+const _include = _wrapForSingleOrEvery((data, cache, options) => {
   if ('include' in options) {
     _applyIncluded(data, cache, options.include)
   }
