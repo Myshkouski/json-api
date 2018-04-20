@@ -1,0 +1,1 @@
+import { IndexedCache } from './cache'

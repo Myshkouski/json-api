@@ -20,10 +20,7 @@ const config = {
     libraryTarget: 'commonjs2'
   },
   resolve: {
-    extensions: ['.js', '.json', '.yaml'],
-    alias: {
-      '~': __src
-    }
+    extensions: ['.js', '.json', '.yaml']
   },
   module: {
     rules: [{
