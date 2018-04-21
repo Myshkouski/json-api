@@ -3,7 +3,7 @@ import defaults from 'lodash/defaults'
 
 import {
   RESOURCE_PROPS
-} from './resourceProps'
+} from '../resourceProps'
 import applyAttriubtes from './applyAttriubtes'
 
 export default data => {
@@ -14,7 +14,7 @@ export default data => {
       attributes: notIncludedAttributes
     })
   }
-  
+
   data = pick(data, RESOURCE_PROPS)
 
   return data
