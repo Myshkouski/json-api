@@ -37,17 +37,19 @@ export default async function fetch(queries, action, type, options, ...args) {
         const type = path.split('.').pop()
 
         dict[path] = async () => {
+          // const typeOptions = Object.assign({}, options[type], {
+          //   filter: {
+          //     id: Object.keys(includedCache.get(type))
+          //   }
+          // })
+
           const {
             data,
             included
-          } = await preFetch(queries[type][action], options[type], ...args)
+          } = await preFetch(queries[type][action], typeOptions, ...args)
 
-          console.log(0)
-          console.dir(resourceCache, { depth: 10 })
           _cache(data, includedCache)
-          console.log(1, resourceCache)
           _cache(included, includedCache)
-          console.log(2, resourceCache)
 
 
           console.log(includedCache)
