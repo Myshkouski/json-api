@@ -170,12 +170,9 @@ describe('Instance Methods', () => {
             strategy: 'offset',
             limit: 10
           },
-          include: [
-            'ops'
-          ],
-          relationships: {
-            ops: {
-              key: 'ops',
+          include: {
+            'ops': {
+              from: 'ops',
               alias: {
                 'id': ''
               }

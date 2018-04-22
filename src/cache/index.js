@@ -39,6 +39,12 @@ export class LinkedIndexedCache extends IndexedCache {
   }
 
   set(path, value) {
+    this.link(path)
+
+    return IndexedCache.prototype.set.call(this, path, value)
+  }
+
+  link(path) {
     if(typeof path === 'string') {
       path = path.split('.')
     }
@@ -49,11 +55,11 @@ export class LinkedIndexedCache extends IndexedCache {
     let target
 
     if (base.length) {
-      target = get(this._cache, base)
+      target = LinkedIndexedCache.prototype.get.call(this, base)
 
-      if(!target) {
+      if(target === undefined) {
         target = {}
-        set(this._cache, base, target, Object)
+        IndexedCache.prototype.set.call(this, base, target)
       }
     } else {
       target = this._cache
@@ -68,6 +74,10 @@ export class LinkedIndexedCache extends IndexedCache {
       get: () => this._linked.get(path)
     })
 
-    target[prop] = value
+    if(!target[prop]) {
+      target[prop] = undefined
+    }
+
+    return this
   }
 }

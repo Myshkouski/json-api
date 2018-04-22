@@ -78,10 +78,10 @@ module.exports =
 /************************************************************************/
 /******/ ({
 
-/***/ "./src/cache.js":
-/*!**********************!*\
-  !*** ./src/cache.js ***!
-  \**********************/
+/***/ "./src/cache/index.js":
+/*!****************************!*\
+  !*** ./src/cache/index.js ***!
+  \****************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -150,6 +150,12 @@ class LinkedIndexedCache extends IndexedCache {
   }
 
   set(path, value) {
+    this.link(path);
+
+    return IndexedCache.prototype.set.call(this, path, value);
+  }
+
+  link(path) {
     if (typeof path === 'string') {
       path = path.split('.');
     }
@@ -160,11 +166,11 @@ class LinkedIndexedCache extends IndexedCache {
     let target;
 
     if (base.length) {
-      target = (0, _get2.default)(this._cache, base);
+      target = LinkedIndexedCache.prototype.get.call(this, base);
 
-      if (!target) {
+      if (target === undefined) {
         target = {};
-        (0, _setWith2.default)(this._cache, base, target, Object);
+        IndexedCache.prototype.set.call(this, base, target);
       }
     } else {
       target = this._cache;
@@ -179,7 +185,11 @@ class LinkedIndexedCache extends IndexedCache {
       get: () => this._linked.get(path)
     });
 
-    target[prop] = value;
+    if (!target[prop]) {
+      target[prop] = undefined;
+    }
+
+    return this;
   }
 }
 exports.LinkedIndexedCache = LinkedIndexedCache;
@@ -200,82 +210,40 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _values = __webpack_require__(/*! babel-runtime/core-js/object/values */ "babel-runtime/core-js/object/values");
-
-var _values2 = _interopRequireDefault(_values);
-
-var _cache2 = __webpack_require__(/*! ./cache */ "./src/cache.js");
-
-var _promiseTree = __webpack_require__(/*! ./promiseTree */ "./src/promiseTree.js");
-
-var _promiseTree2 = _interopRequireDefault(_promiseTree);
+var _cache = __webpack_require__(/*! ./cache */ "./src/cache/index.js");
 
 var _prefetch = __webpack_require__(/*! ./prefetch */ "./src/prefetch.js");
 
 var _prefetch2 = _interopRequireDefault(_prefetch);
 
-var _wrapFor = __webpack_require__(/*! ./helpers/wrapFor */ "./src/helpers/wrapFor.js");
+var _include = __webpack_require__(/*! ./include */ "./src/include/index.js");
+
+var _include2 = _interopRequireDefault(_include);
+
+var _cache2 = __webpack_require__(/*! ./helpers/cache */ "./src/helpers/cache.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-const _cache = (0, _wrapFor.forSingleOrMany)((data, indexedCache) => {
-  indexedCache.set([data.type, data.id], data);
-});
-const _extractCache = indexedCache => {
-  return indexedCache.keys.reduce((array, type) => {
-    const values = (0, _values2.default)(indexedCache.get(type));
-    return array.concat(values);
-  }, []);
-};
-
 exports.default = async function fetch(queries, action, type, options, ...args) {
-  const resourceCache = new _cache2.IndexedCache();
-  const dataCache = new _cache2.LinkedIndexedCache(resourceCache);
-  const includedCache = new _cache2.LinkedIndexedCache(resourceCache);
+  const resourceCache = new _cache.IndexedCache();
+  const dataCache = new _cache.LinkedIndexedCache(resourceCache);
+  const includedCache = new _cache.LinkedIndexedCache(resourceCache);
+
+  const typeOptions = options[type];
 
   let {
     data,
     included
-  } = await (0, _prefetch2.default)(queries[type][action], options[type], ...args);
+  } = await (0, _prefetch2.default)(queries[type][action], typeOptions, ...args);
 
-  _cache(data, dataCache);
-  _cache(included, includedCache);
+  (0, _cache2.cache)(data, dataCache);
+  (0, _cache2.cache)(included, includedCache);
 
-  if (options[type].include) {
-    function createIncludeDict(include) {
-      return include.reduce((dict, path) => {
-        const type = path.split('.').pop();
-
-        dict[path] = async () => {
-          const {
-            data,
-            included
-          } = await (0, _prefetch2.default)(queries[type][action], options[type], ...args);
-
-          console.log(0);
-          console.dir(resourceCache, { depth: 10 });
-          _cache(data, includedCache);
-          console.log(1, resourceCache);
-          _cache(included, includedCache);
-          console.log(2, resourceCache);
-
-          console.log(includedCache);
-
-          return includedCache;
-        };
-
-        return dict;
-      }, {});
-    }
-
-    const dict = createIncludeDict(options[type].include);
-
-    const includePromiseTree = new _promiseTree2.default(dict);
-
-    await includePromiseTree.run();
+  if (typeOptions.include) {
+    await (0, _include2.default)(data, includedCache, queries, action, type, options, ...args);
   }
 
-  included = _extractCache(includedCache);
+  included = (0, _cache2.extract)(includedCache);
 
   return {
     data,
@@ -284,6 +252,42 @@ exports.default = async function fetch(queries, action, type, options, ...args) 
 };
 
 module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/helpers/cache.js":
+/*!******************************!*\
+  !*** ./src/helpers/cache.js ***!
+  \******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.extract = exports.cache = undefined;
+
+var _values = __webpack_require__(/*! babel-runtime/core-js/object/values */ "babel-runtime/core-js/object/values");
+
+var _values2 = _interopRequireDefault(_values);
+
+var _wrapFor = __webpack_require__(/*! ./wrapFor */ "./src/helpers/wrapFor.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const cache = exports.cache = (0, _wrapFor.forSingleOrMany)((data, indexedCache) => {
+  indexedCache.set([data.type, data.id], data);
+});
+
+const extract = exports.extract = indexedCache => {
+  return indexedCache.keys.reduce((array, type) => {
+    const values = (0, _values2.default)(indexedCache.get(type));
+    return array.concat(values);
+  }, []);
+};
 
 /***/ }),
 
@@ -335,21 +339,104 @@ function forMany(f) {
 "use strict";
 
 
-var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
 
-var _pick2 = _interopRequireDefault(_pick);
+var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
 
-var _alias = __webpack_require__(/*! ../transform/pre/alias */ "./src/transform/pre/alias.js");
+var _assign2 = _interopRequireDefault(_assign);
 
-var _alias2 = _interopRequireDefault(_alias);
+var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
+
+var _keys2 = _interopRequireDefault(_keys);
+
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
+
+var _get2 = _interopRequireDefault(_get);
+
+var _pre = __webpack_require__(/*! ../transform/pre */ "./src/transform/pre/index.js");
+
+var _pre2 = _interopRequireDefault(_pre);
 
 var _prefetch = __webpack_require__(/*! ../prefetch */ "./src/prefetch.js");
 
 var _prefetch2 = _interopRequireDefault(_prefetch);
 
+var _promiseTree = __webpack_require__(/*! ../promiseTree */ "./src/promiseTree.js");
+
+var _promiseTree2 = _interopRequireDefault(_promiseTree);
+
+var _cache = __webpack_require__(/*! ../cache */ "./src/cache/index.js");
+
+var _cache2 = __webpack_require__(/*! ../helpers/cache */ "./src/helpers/cache.js");
+
+var _wrapFor = __webpack_require__(/*! ../helpers/wrapFor */ "./src/helpers/wrapFor.js");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-const include = (query, type, options) => {};
+const forEach = (0, _wrapFor.forSingleOrMany)((data, f) => f(data));
+
+const extractIncluded = (data, options) => {};
+
+const assignIncluded = (0, _wrapFor.forSingleOrMany)((data, options, cache) => {
+  if (data) {
+    Object.defineProperty(data, '_include', {
+      // enumerable: true,
+      value: new _cache.LinkedIndexedCache(cache)
+    });
+
+    for (let type in options) {
+      let typeOptions = options[type];
+
+      let resourceIds = (0, _get2.default)(data._source, typeOptions.from);
+
+      forEach(resourceIds, id => {
+        data._include.link([type, id]);
+      });
+    }
+  }
+});
+
+exports.default = async function include(data, includedCache, queries, action, type, options, ...args) {
+  const typeOptions = options[type];
+
+  assignIncluded(data, typeOptions.include, includedCache);
+
+  function createIncludeDict(include) {
+    return (0, _keys2.default)(include).reduce((dict, path) => {
+      const type = path.split('.').pop();
+
+      dict[path] = async () => {
+        const typeOptions = (0, _assign2.default)({}, options[type], {
+          filter: {
+            id: (0, _keys2.default)(includedCache.get(type))
+          }
+        });
+
+        const {
+          data,
+          included
+        } = await (0, _prefetch2.default)(queries[type][action], typeOptions, ...args);
+
+        (0, _cache2.cache)(data, includedCache);
+        (0, _cache2.cache)(included, includedCache);
+
+        return includedCache;
+      };
+
+      return dict;
+    }, {});
+  }
+
+  const dict = createIncludeDict(typeOptions.include);
+
+  const includePromiseTree = new _promiseTree2.default(dict);
+
+  await includePromiseTree.run();
+};
+
+module.exports = exports['default'];
 
 /***/ }),
 
@@ -690,17 +777,17 @@ var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
 
 var _merge2 = _interopRequireDefault(_merge);
 
+var _defaults = __webpack_require__(/*! lodash/defaults */ "lodash/defaults");
+
+var _defaults2 = _interopRequireDefault(_defaults);
+
 var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
 
 var _pick2 = _interopRequireDefault(_pick);
 
-var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
 
-var _omit2 = _interopRequireDefault(_omit);
-
-var _defaults = __webpack_require__(/*! lodash/defaults */ "lodash/defaults");
-
-var _defaults2 = _interopRequireDefault(_defaults);
+var _get2 = _interopRequireDefault(_get);
 
 var _alias = __webpack_require__(/*! ./alias */ "./src/transform/pre/alias.js");
 
@@ -719,25 +806,29 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 const preTransform = (data, options) => {
   let source = data;
 
+  if ('from' in options) {
+    data = (0, _get2.default)(data, options.from);
+  }
+
   if ('alias' in options) {
     data = (0, _alias2.default)(data, options.alias);
   }
 
   data = (0, _rootMembers2.default)(data);
 
-  if ('merge' in options) {
-    data = (0, _merge2.default)(data, options.merge);
-  }
+  (0, _defineSourceProp2.default)(data, source);
 
   if ('defaults' in options) {
     (0, _defaults2.default)(data, options.defaults);
   }
 
-  if ('fields' in options) {
-    data.attributes = (0, _omit2.default)(data.attributes, options.fields);
+  if ('merge' in options) {
+    (0, _merge2.default)(data, options.merge);
   }
 
-  (0, _defineSourceProp2.default)(data, source);
+  if ('fields' in options) {
+    data.attributes = (0, _pick2.default)(data.attributes, options.fields);
+  }
 
   return data;
 };
