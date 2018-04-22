@@ -1,5 +1,5 @@
 import get from 'lodash/get'
-import set from 'lodash/set'
+import set from 'lodash/setWith'
 
 export class IndexedCache {
   constructor() {
@@ -9,8 +9,12 @@ export class IndexedCache {
     })
   }
 
+  get keys() {
+    return Object.keys(this._cache)
+  }
+
   set(path, value) {
-    set(this._cache, path, value)
+    set(this._cache, path, value, Object)
 
     return this
   }
@@ -35,19 +39,29 @@ export class LinkedIndexedCache extends IndexedCache {
   }
 
   set(path, value) {
-    const split = path.split('.')
-    const prop = split.pop()
+    if(typeof path === 'string') {
+      path = path.split('.')
+    }
+
+    const base = path.slice(0, -1)
+
+    const prop = path[path.length - 1]
     let target
 
-    if (split.length) {
-      target = {}
-      set(this._cache, split, target)
+    if (base.length) {
+      target = get(this._cache, base)
+
+      if(!target) {
+        target = {}
+        set(this._cache, base, target, Object)
+      }
     } else {
       target = this._cache
     }
 
     Object.defineProperty(target, prop, {
       enumerable: true,
+      configurable: true,
       set: value => {
         this._linked.set(path, value)
       },

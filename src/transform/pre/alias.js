@@ -1,7 +1,8 @@
 import omit from 'lodash/omit'
 import set from 'lodash/set'
+import get from 'lodash/get'
 
-export default function assignAlias(data, alias, fullPath) {
+function assignAlias(data, alias, fullPath) {
   if (typeof alias == 'string') {
     return alias.length ? get(data, alias) : data
   } else {
@@ -11,7 +12,7 @@ export default function assignAlias(data, alias, fullPath) {
       const _omitProps = []
 
       for (let key in alias) {
-        const path = (fullPath || '') + key
+        const path = fullPath + key
 
         let _alias = alias[key]
 
@@ -32,3 +33,5 @@ export default function assignAlias(data, alias, fullPath) {
     return obj
   }
 }
+
+export default (data, options) => assignAlias(data, options, '')

@@ -14,54 +14,54 @@ describe('Module', () => {
   })
 })
 
-describe('Static Methods', () => {
-  let validDocument, invalidDocumentStructure
-  beforeEach(() => {
-    validDocument = {
-      data: {
-        id: '0',
-        type: 'test'
-      }
-    }
-
-    invalidDocumentStructure = {
-      data: null,
-      errors: []
-    }
-  })
-
-  describe('#validate', () => {
-    it('should return promise', async () => {
-      const p = JsonApi.validate(validDocument)
-
-      assert.ok(p instanceof Promise)
-
-      try {
-        await p
-      } catch (error) {}
-    })
-
-    it('should return resolved promise for valid document', async () => {
-      await JsonApi.validate(validDocument)
-    })
-
-    it('should return rejected promise for invalid document', async () => {
-      try {
-        await JsonApi.validate(invalidDocumentStructure)
-      } catch (error) {
-        return
-      }
-
-      throw 1
-    })
-  })
-
-  describe('#add()', () => {
-    it('should set value to path of any depth', async () => {
-
-    })
-  })
-})
+// describe('Static Methods', () => {
+//   let validDocument, invalidDocumentStructure
+//   beforeEach(() => {
+//     validDocument = {
+//       data: {
+//         id: '0',
+//         type: 'test'
+//       }
+//     }
+//
+//     invalidDocumentStructure = {
+//       data: null,
+//       errors: []
+//     }
+//   })
+//
+//   describe('#validate', () => {
+//     it('should return promise', async () => {
+//       const p = JsonApi.validate(validDocument)
+//
+//       assert.ok(p instanceof Promise)
+//
+//       try {
+//         await p
+//       } catch (error) {}
+//     })
+//
+//     it('should return resolved promise for valid document', async () => {
+//       await JsonApi.validate(validDocument)
+//     })
+//
+//     it('should return rejected promise for invalid document', async () => {
+//       try {
+//         await JsonApi.validate(invalidDocumentStructure)
+//       } catch (error) {
+//         return
+//       }
+//
+//       throw 1
+//     })
+//   })
+//
+//   describe('#add()', () => {
+//     it('should set value to path of any depth', async () => {
+//
+//     })
+//   })
+// })
 
 describe('Instance Methods', () => {
   let jsonapi, resourceName, fetchCollection, fetchOps
@@ -74,7 +74,7 @@ describe('Instance Methods', () => {
         included
       } = f.apply(this, arguments)
 
-      if (Array.isArray(data) && 'filter' in options && 'id' in options.filter) {
+      if (Array.isArray(data) && ('filter' in options) && ('id' in options.filter)) {
         if (Array.isArray(options.filter.id)) {
           data = data.filter(resource => options.filter.id.some(id => id == resource._id))
         } else {
@@ -84,10 +84,7 @@ describe('Instance Methods', () => {
 
       return {
         data,
-        included,
-        _report: {
-          // filter: true
-        }
+        included
       }
     }
 
@@ -155,17 +152,28 @@ describe('Instance Methods', () => {
           alias: {
             'id': '_id'
           },
-          filter: {
-            id: 1
+          defaults: {
+            type: 'collections'
           },
-          fields: 'name',
-          sort: 'id',
+          filter: {
+            'id': [
+              '1'
+            ]
+          },
+          fields: [
+            'name'
+          ],
+          sort: [
+            ['name', 1]
+          ],
           page: {
             strategy: 'offset',
-            // offset: 1,
             limit: 10
           },
-          include: {
+          include: [
+            'ops'
+          ],
+          relationships: {
             ops: {
               key: 'ops',
               alias: {
@@ -178,26 +186,19 @@ describe('Instance Methods', () => {
           alias: {
             'id': '_id'
           },
-          fields: 'timestamp',
-          sort: '-timestamp',
-          // include: {
-          //   collections: {
-          //     key: 'cols',
-          //     alias: {
-          //       'id': ''
-          //     }
-          //   }
-          // }
+          defaults: {
+            type: 'ops'
+          }
         }
       })
 
-      // console.dir(data, {
-      //   depth: Infinity
-      // })
-      //
-      // console.dir(included, {
-      //   depth: Infinity
-      // })
+      console.dir(data, {
+        depth: Infinity
+      })
+
+      console.dir(included, {
+        depth: Infinity
+      })
     })
   })
 })

@@ -1,9 +1,8 @@
 import pick from 'lodash/pick'
 
-import { IndexedCache, LinkedIndexedCache } from './cache'
-import PromiseTree from './promiseTree'
 import applyAlias from '../transform/pre/alias'
+import prefetch from '../prefetch'
 
-const include = (data) => {
+const include = (query, type, options) => {
 
 }

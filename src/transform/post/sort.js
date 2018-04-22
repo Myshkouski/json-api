@@ -1,16 +1,16 @@
-function _sortByNumberOrCharCodes(reverse, a, b) {
+function _sortByNumberOrCharCodes(vector, a, b) {
   if (a > b) {
-    return reverse
+    return vector
   } else if (a < b) {
-    return -1 * reverse
+    return -1 * vector
   }
 
   return 0
 }
 
 function _sortByKey(rule, a, b) {
-  const [key, reverse] = rule
-  return _sortByNumberOrCharCodes(reverse, get(a, key), get(b, key))
+  const [key, vector] = rule
+  return _sortByNumberOrCharCodes(vector, get(a, key), get(b, key))
 }
 
 function _parseSortRules(string) {

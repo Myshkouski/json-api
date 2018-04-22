@@ -78,6 +78,281 @@ module.exports =
 /************************************************************************/
 /******/ ({
 
+/***/ "./src/cache.js":
+/*!**********************!*\
+  !*** ./src/cache.js ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.LinkedIndexedCache = exports.IndexedCache = undefined;
+
+var _defineProperty = __webpack_require__(/*! babel-runtime/core-js/object/define-property */ "babel-runtime/core-js/object/define-property");
+
+var _defineProperty2 = _interopRequireDefault(_defineProperty);
+
+var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
+
+var _keys2 = _interopRequireDefault(_keys);
+
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
+
+var _get2 = _interopRequireDefault(_get);
+
+var _setWith = __webpack_require__(/*! lodash/setWith */ "lodash/setWith");
+
+var _setWith2 = _interopRequireDefault(_setWith);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+class IndexedCache {
+  constructor() {
+    Object.defineProperty(this, '_cache', {
+      enumerable: true,
+      value: {}
+    });
+  }
+
+  get keys() {
+    return (0, _keys2.default)(this._cache);
+  }
+
+  set(path, value) {
+    (0, _setWith2.default)(this._cache, path, value, Object);
+
+    return this;
+  }
+
+  get(path) {
+    return (0, _get2.default)(this._cache, path);
+  }
+}
+
+exports.IndexedCache = IndexedCache;
+class LinkedIndexedCache extends IndexedCache {
+  constructor(indexedCache) {
+    super();
+
+    if (!indexedCache instanceof IndexedCache) {
+      throw TypeError('First arguments should be an instance of IndexedCache');
+    }
+
+    Object.defineProperty(this, '_linked', {
+      // enumerable: true,
+      value: indexedCache
+    });
+  }
+
+  set(path, value) {
+    if (typeof path === 'string') {
+      path = path.split('.');
+    }
+
+    const base = path.slice(0, -1);
+
+    const prop = path[path.length - 1];
+    let target;
+
+    if (base.length) {
+      target = (0, _get2.default)(this._cache, base);
+
+      if (!target) {
+        target = {};
+        (0, _setWith2.default)(this._cache, base, target, Object);
+      }
+    } else {
+      target = this._cache;
+    }
+
+    (0, _defineProperty2.default)(target, prop, {
+      enumerable: true,
+      configurable: true,
+      set: value => {
+        this._linked.set(path, value);
+      },
+      get: () => this._linked.get(path)
+    });
+
+    target[prop] = value;
+  }
+}
+exports.LinkedIndexedCache = LinkedIndexedCache;
+
+/***/ }),
+
+/***/ "./src/fetch.js":
+/*!**********************!*\
+  !*** ./src/fetch.js ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _values = __webpack_require__(/*! babel-runtime/core-js/object/values */ "babel-runtime/core-js/object/values");
+
+var _values2 = _interopRequireDefault(_values);
+
+var _cache2 = __webpack_require__(/*! ./cache */ "./src/cache.js");
+
+var _promiseTree = __webpack_require__(/*! ./promiseTree */ "./src/promiseTree.js");
+
+var _promiseTree2 = _interopRequireDefault(_promiseTree);
+
+var _prefetch = __webpack_require__(/*! ./prefetch */ "./src/prefetch.js");
+
+var _prefetch2 = _interopRequireDefault(_prefetch);
+
+var _wrapFor = __webpack_require__(/*! ./helpers/wrapFor */ "./src/helpers/wrapFor.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const _cache = (0, _wrapFor.forSingleOrMany)((data, indexedCache) => {
+  indexedCache.set([data.type, data.id], data);
+});
+const _extractCache = indexedCache => {
+  return indexedCache.keys.reduce((array, type) => {
+    const values = (0, _values2.default)(indexedCache.get(type));
+    return array.concat(values);
+  }, []);
+};
+
+exports.default = async function fetch(queries, action, type, options, ...args) {
+  const resourceCache = new _cache2.IndexedCache();
+  const dataCache = new _cache2.LinkedIndexedCache(resourceCache);
+  const includedCache = new _cache2.LinkedIndexedCache(resourceCache);
+
+  let {
+    data,
+    included
+  } = await (0, _prefetch2.default)(queries[type][action], options[type], ...args);
+
+  _cache(data, dataCache);
+  _cache(included, includedCache);
+
+  if (options[type].include) {
+    function createIncludeDict(include) {
+      return include.reduce((dict, path) => {
+        const type = path.split('.').pop();
+
+        dict[path] = async () => {
+          const {
+            data,
+            included
+          } = await (0, _prefetch2.default)(queries[type][action], options[type], ...args);
+
+          console.log(0);
+          console.dir(resourceCache, { depth: 10 });
+          _cache(data, includedCache);
+          console.log(1, resourceCache);
+          _cache(included, includedCache);
+          console.log(2, resourceCache);
+
+          console.log(includedCache);
+
+          return includedCache;
+        };
+
+        return dict;
+      }, {});
+    }
+
+    const dict = createIncludeDict(options[type].include);
+
+    const includePromiseTree = new _promiseTree2.default(dict);
+
+    await includePromiseTree.run();
+  }
+
+  included = _extractCache(includedCache);
+
+  return {
+    data,
+    included
+  };
+};
+
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/helpers/wrapFor.js":
+/*!********************************!*\
+  !*** ./src/helpers/wrapFor.js ***!
+  \********************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.forSingleOrMany = forSingleOrMany;
+exports.forMany = forMany;
+function forSingleOrMany(f) {
+  return function (data, ...args) {
+    if (Array.isArray(data)) {
+      return data.map(data => f.call(this, data, ...args));
+    } else if (typeof data == 'object') {
+      return f.apply(this, arguments);
+    }
+    return data;
+  };
+}
+
+function forMany(f) {
+  return function (...args) {
+    const data = args[0];
+    if (Array.isArray(data)) {
+      return f.apply(this, args);
+    }
+    return data;
+  };
+}
+
+/***/ }),
+
+/***/ "./src/include/index.js":
+/*!******************************!*\
+  !*** ./src/include/index.js ***!
+  \******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+
+var _pick2 = _interopRequireDefault(_pick);
+
+var _alias = __webpack_require__(/*! ../transform/pre/alias */ "./src/transform/pre/alias.js");
+
+var _alias2 = _interopRequireDefault(_alias);
+
+var _prefetch = __webpack_require__(/*! ../prefetch */ "./src/prefetch.js");
+
+var _prefetch2 = _interopRequireDefault(_prefetch);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const include = (query, type, options) => {};
+
+/***/ }),
+
 /***/ "./src/index.js":
 /*!**********************!*\
   !*** ./src/index.js ***!
@@ -92,38 +367,6 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-runtime/core-js/promise");
-
-var _promise2 = _interopRequireDefault(_promise);
-
-var _asyncToGenerator2 = __webpack_require__(/*! babel-runtime/helpers/asyncToGenerator */ "babel-runtime/helpers/asyncToGenerator");
-
-var _asyncToGenerator3 = _interopRequireDefault(_asyncToGenerator2);
-
-var _defineProperty = __webpack_require__(/*! babel-runtime/core-js/object/define-property */ "babel-runtime/core-js/object/define-property");
-
-var _defineProperty2 = _interopRequireDefault(_defineProperty);
-
-var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
-
-var _assign2 = _interopRequireDefault(_assign);
-
-var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
-
-var _keys2 = _interopRequireDefault(_keys);
-
-var _json8Patch = __webpack_require__(/*! json8-patch */ "json8-patch");
-
-var _json8Patch2 = _interopRequireDefault(_json8Patch);
-
-var _defaultsDeep = __webpack_require__(/*! lodash/defaultsDeep */ "lodash/defaultsDeep");
-
-var _defaultsDeep2 = _interopRequireDefault(_defaultsDeep);
-
-var _cloneDeep = __webpack_require__(/*! lodash/cloneDeep */ "lodash/cloneDeep");
-
-var _cloneDeep2 = _interopRequireDefault(_cloneDeep);
-
 var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
 
 var _get2 = _interopRequireDefault(_get);
@@ -132,475 +375,24 @@ var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
 
 var _set2 = _interopRequireDefault(_set);
 
-var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+var _prefetch = __webpack_require__(/*! ./prefetch */ "./src/prefetch.js");
 
-var _pick2 = _interopRequireDefault(_pick);
+var _prefetch2 = _interopRequireDefault(_prefetch);
 
-var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
+var _include = __webpack_require__(/*! ./include */ "./src/include/index.js");
 
-var _omit2 = _interopRequireDefault(_omit);
+var _include2 = _interopRequireDefault(_include);
 
-var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
+var _fetch2 = __webpack_require__(/*! ./fetch */ "./src/fetch.js");
 
-var _merge2 = _interopRequireDefault(_merge);
-
-var _validate = __webpack_require__(/*! ./validate */ "./src/validate.js");
-
-var _mapValidationErrors = __webpack_require__(/*! ./mapValidationErrors */ "./src/mapValidationErrors.js");
-
-var _mapValidationErrors2 = _interopRequireDefault(_mapValidationErrors);
-
-var _paginationStrategies = __webpack_require__(/*! ./paginationStrategies */ "./src/paginationStrategies.js");
-
-var pagination = _interopRequireWildcard(_paginationStrategies);
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+var _fetch3 = _interopRequireDefault(_fetch2);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _concatenateData(...args) {
-  const array = args.reduce((a, b) => {
-    if (Array.isArray(b)) {
-      return a.concat(b);
-    } else {
-      return a.concat([b]);
-    }
-  }, []);
-
-  return array.length ? array : null;
-}
-
-function _wrapForSingleOrEvery(f) {
-  return function (...args) {
-    const data = args[0];
-    if (Array.isArray(data)) {
-      return data.map(data => f.apply(this, [data, ...args.slice(1)]));
-    } else if (typeof data == 'object') {
-      return f.apply(this, args);
-    }
-  };
-}
-
-function _wrapForManyOnly(f) {
-  return function (...args) {
-    const data = args[0];
-    if (Array.isArray(data)) {
-      return f.apply(this, [data, ...args.slice(1)]);
-    }
-
-    return data;
-  };
-}
-
-const _forEvery = _wrapForSingleOrEvery((data, f) => f(data));
-
-const _createIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
-  for (let type in data._include) {
-    (0, _defaultsDeep2.default)(_indexedCache, {
-      [type]: {}
-    });
-    (0, _keys2.default)(data._include[type]).forEach(id => (0, _set2.default)(_indexedCache, [type, id]));
-  }
-});
-
-const _cacheIndex = _wrapForSingleOrEvery((data, _indexedCache = {}) => {
-  (0, _set2.default)(_indexedCache, [data.type, data.id], data);
-});
-
-function _extractIndexedCache(_indexedCache) {
-  const array = [];
-  for (let type in _indexedCache) {
-    const _indexedCacheType = _indexedCache[type];
-    for (let id in _indexedCacheType) {
-      array.push(_indexedCacheType[id]);
-    }
-  }
-  return array;
-}
-
-function assignAlias(data, alias, fullPath) {
-  if (typeof alias == 'string') {
-    return alias.length ? (0, _get2.default)(data, alias) : data;
-  } else {
-    let obj;
-    if (Array.isArray(alias)) {
-      obj = [];
-    } else {
-      obj = (0, _assign2.default)({}, data);
-    }
-
-    if (typeof alias == 'object') {
-      for (let key in alias) {
-        const path = (fullPath || '') + key;
-
-        let _alias = alias[key];
-
-        const aliased = assignAlias(data, _alias, path);
-
-        if (path != _alias) {
-          obj = (0, _omit2.default)(obj, [_alias]);
-        }
-
-        (0, _set2.default)(obj, key, aliased);
-      }
-    }
-
-    return obj;
-  }
-}
-
-const _wrappedAssignAlias = _wrapForSingleOrEvery(assignAlias);
-const _wrappedPick = _wrapForSingleOrEvery(_pick2.default);
-
-function assignDefaults(data, options) {
-  return (0, _defaultsDeep2.default)({}, data, options);
-}
-
-function _sortByNumberOrCharCodes(reverse, a, b) {
-  if (a > b) {
-    return reverse;
-  } else if (a < b) {
-    return -1 * reverse;
-  }
-
-  return 0;
-}
-
-function _sortByKey(rule, a, b) {
-  const [key, reverse] = rule;
-  return _sortByNumberOrCharCodes(reverse, (0, _get2.default)(a, key), (0, _get2.default)(b, key));
-}
-
-function _parseSortRules(string) {
-  return string.split(',').map(key => {
-    const rule = [];
-    if (key[0] == '-') {
-      rule[0] = key.slice(1);
-      rule[1] = -1;
-    } else {
-      rule[0] = key;
-      rule[1] = 1;
-    }
-
-    return rule;
-  });
-}
-
-const _applySort = _wrapForManyOnly((data, options) => {
-  const rules = _parseSortRules(options);
-  return data.sort((a, b) => {
-    for (let rule of rules) {
-      const res = _sortByKey(rule, a.attributes, b.attributes);
-
-      if (res) {
-        return res;
-      }
-    }
-
-    return 0;
-  });
-});
-
-function _applyAttributesFields(data, options) {
-  options = options.split(',');
-  data.attributes = (0, _pick2.default)(data.attributes, options);
-  return data;
-}
-
-const RESOURCE_IDENTIFIER_PROPS = ['id', 'type', 'meta'];
-
-function _applyIncluded(data, cache = {}, options) {
-  if (data) {
-    Object.defineProperty(data, '_include', {
-      enumerable: true,
-      value: {}
-    });
-
-    for (let type in options) {
-      let typeOptions = options[type];
-      let resourceIdentifiers = data._source;
-      if ('key' in typeOptions && typeOptions.key.length) {
-        resourceIdentifiers = (0, _get2.default)(data._source, typeOptions.key);
-      }
-
-      if ('alias' in typeOptions) {
-        resourceIdentifiers = _wrappedAssignAlias(resourceIdentifiers, typeOptions.alias);
-      }
-
-      resourceIdentifiers = _wrappedPick(resourceIdentifiers, RESOURCE_IDENTIFIER_PROPS);
-
-      data._include[type] = {};
-
-      _forEvery(resourceIdentifiers, resourceId => {
-        (0, _defineProperty2.default)(data._include[type], resourceId.id, {
-          enumerable: true,
-          get() {
-            return (0, _get2.default)(cache, [type, resourceId.id]);
-          }
-        });
-      });
-    }
-  }
-
-  return data;
-}
-
-const resourceMembers = ['id', 'type', 'attributes', 'relationships', 'links', 'meta'];
-
-const _preTransform = _wrapForSingleOrEvery((_data, cache, options) => {
-  let data = _data;
-
-  if ('alias' in options) {
-    data = assignAlias(data, options.alias);
-  }
-
-  const attributes = (0, _omit2.default)(data, resourceMembers);
-
-  if ((0, _keys2.default)(attributes)) {
-    (0, _defaultsDeep2.default)(data, {
-      attributes
-    });
-  }
-
-  data = (0, _pick2.default)(data, resourceMembers);
-
-  if ('id' in data) {
-    data.id += '';
-  }
-
-  if ('merge' in options) {
-    data = (0, _merge2.default)(data, options.merge);
-  }
-
-  if ('defaults' in options) {
-    data = assignDefaults(data, options.defaults);
-  }
-
-  if ('fields' in options) {
-    data = _applyAttributesFields(data, options.fields);
-  }
-
-  Object.defineProperty(data, '_source', {
-    get() {
-      return _data;
-    }
-  });
-
-  if ('include' in options) {
-    _applyIncluded(data, cache, options.include);
-  }
-
-  return data;
-});
-
-const _applyPagination = _wrapForManyOnly((data, options, body) => {
-  const strategy = pagination[options.strategy];
-
-  if (strategy) {
-    const {
-      offset,
-      end
-    } = strategy.bounds(data.length, options.offset, options.limit);
-    ['self', 'first', 'last', 'prev', 'next'].forEach(key => {
-      if (typeof strategy[key] == 'function') {
-        const query = strategy[key](data.length, offset, end, options.limit);
-
-        // set(body, `links.${ key }`, query)
-      }
-    });
-
-    data = data.slice(offset, end);
-
-    if (!data.length) {
-      data = null;
-    }
-  } else {
-    throw new ReferenceError('Cannot use pagination strategy:', options.strategy);
-  }
-
-  return data;
-});
-
-const _postTransform = (data, options, report) => {
-  if ('sort' in options) {
-    data = _applySort(data, options.sort);
-  }
-
-  if ('page' in options) {
-    data = _applyPagination(data, options.page, report);
-  }
-
-  return data;
-};
-
 class JsonApi {
-  static validate(...args) {
-    return (0, _asyncToGenerator3.default)(function* () {
-      let ref = '/',
-          body = args[0];
-      if (args.length > 1) {
-        ref = args[0];
-        body = args[1];
-      }
-
-      try {
-        return yield (0, _validate.validate)(ref, body);
-      } catch (error) {
-        throw {
-          message: `Validation error`,
-          reasons: error.errors.map(_mapValidationErrors2.default)
-        };
-      }
-    })();
-  }
-
-  static get(doc, path) {
-    return _json8Patch2.default.get(doc, path);
-  }
-
-  static has(doc, path) {
-    return _json8Patch2.default.has(doc, path);
-  }
-
-  static link(hrefOrLink) {
-    let link = {};
-    if (typeof hrefOrLink == 'string') {
-      link = hrefOrLink;
-    } else if (typeof hrefOrLink == 'object') {
-      link = (0, _cloneDeep2.default)(hrefOrLink);
-    } else {
-      return null;
-    }
-
-    return link;
-  }
-
-  static patch(body, ops, options = {}) {
-    return (0, _asyncToGenerator3.default)(function* () {
-      options = (0, _defaultsDeep2.default)({}, options, {
-        reversible: false
-      });
-
-      let res;
-
-      try {
-        try {
-          res = _json8Patch2.default.apply(body, ops, options);
-        } catch (error) {
-          error.detail = `Cannot apply JSON patch`;
-
-          throw error;
-        }
-
-        if (options.validatePatch) {
-          try {
-            yield JsonApi.validate(res.doc);
-          } catch (error) {
-            error.detail = `Document validation failed after patch has been applied`;
-
-            throw error;
-          }
-        }
-      } catch (error) {
-        if (options.reversible) {
-          const reverted = _json8Patch2.default.revert(body, res.revert).doc;
-
-          error.doc = reverted;
-        }
-
-        error.ops = ops;
-
-        throw error;
-      }
-
-      return res;
-    })();
-  }
-
-  static add(body, path, value, options) {
-    return (0, _asyncToGenerator3.default)(function* () {
-      const ops = [{
-        op: 'add',
-        path,
-        value
-      }];
-
-      return yield JsonApi.patch(body, ops, options);
-    })();
-  }
-
-  static getSchemas() {
-    const schemas = (0, _validate.getSchemas)();
-
-    if (options.id == 'index') {
-      schema.id = index;
-    } else {
-      schema.id = schemas[key][options.id];
-    }
-
-    schema.type = options.type;
-
-    schema.id = key;
-    schema.attributes = (0, _cloneDeep2.default)(schemas[key]);
-
-    array.push(schema);
-
-    return array;
-  }
-
   constructor(options = {}) {
     this.options = {};
     this._connected = {};
-
-    if ('body' in options) {
-      if (typeof options.body != 'object') {
-        throw new Error(`'options.body' should be a JSON object`);
-      }
-      this.body = options.body;
-    } else {
-      this.body = {};
-    }
-
-    if ('validatePatch' in options) {
-      if (typeof options.validatePatch != 'boolean') {
-        throw new Error(`'options.validatePatch' should be 'true' or 'false'`);
-      }
-      this.options.validatePatch = options.validatePatch;
-    } else {
-      this.options.validatePatch = false;
-    }
-  }
-
-  "get"(path) {
-    return JsonApi.get(this.body, path);
-  }
-
-  has(path) {
-    return JsonApi.has(this.body, path);
-  }
-
-  validate() {
-    var _this = this;
-
-    return (0, _asyncToGenerator3.default)(function* () {
-      return yield JsonApi.validate(_this.body);
-    })();
-  }
-
-  patch(ops) {
-    var _this2 = this;
-
-    return (0, _asyncToGenerator3.default)(function* () {
-      return yield JsonApi.patch(_this2.body, ops, _this2.options);
-    })();
-  }
-
-  add(path, value) {
-    var _this3 = this;
-
-    return (0, _asyncToGenerator3.default)(function* () {
-      return yield JsonApi.add(_this3.body, path, value, _this3.options);
-    })();
   }
 
   connect(type, fetch) {
@@ -624,115 +416,171 @@ class JsonApi {
   }
 
   fetch(action, type, options, ...args) {
-    var _this4 = this;
-
-    return (0, _asyncToGenerator3.default)(function* () {
-      const _prefetch = _this4._connected[type];
-
-      let {
-        data,
-        included
-      } = yield _prefetch[action](options[type], ...args);
-
-      const _indexedCache = {};
-
-      data = _preTransform(data, _indexedCache, options[type]);
-      included = _preTransform(included, _indexedCache, options);
-
-      _createIndex(data, _indexedCache);
-      _cacheIndex(included, _indexedCache);
-
-      const _fetchArgs = (0, _keys2.default)(_indexedCache).map(function (type) {
-        const typeOptions = (0, _cloneDeep2.default)(options[type]);
-
-        (0, _set2.default)(typeOptions, 'filter', {
-          id: (0, _keys2.default)(_indexedCache[type])
-        });
-
-        (0, _merge2.default)(typeOptions, {
-          merge: {
-            type
-          }
-        });
-
-        return [type, (0, _defaultsDeep2.default)({
-          [type]: typeOptions
-        }, options)];
-      });
-
-      let res = yield _promise2.default.all(_fetchArgs.map(function (fetchArgs) {
-        return _this4.fetch(action, ...fetchArgs, ...args);
-      }));
-
-      res.forEach(function (fetched) {
-        _cacheIndex(fetched.data, _indexedCache);
-        _cacheIndex(fetched.included, _indexedCache);
-      });
-
-      data = _postTransform(data, options);
-      included = _postTransform(_extractIndexedCache(_indexedCache), options);
-
-      return {
-        data,
-        included
-      };
-    })();
-  }
-
-  data(type) {
-    return (0, _asyncToGenerator3.default)(function* () {})();
+    return (0, _fetch3.default)(this._connected, action, type, options, ...args);
   }
 }
-
-// function _createIndexPendingResources(data, cache) {
-//   if (Array.isArray(data)) {
-//     data.forEach(data => _createIndexPendingResources(data, cache))
-//   } else if (typeof data == 'object') {
-//     const {
-//       id,
-//       type
-//     } = data
-//
-//     if (!cache[type]) {
-//       cache[type] = []
-//     }
-//
-//     cache[type].push(id)
-//   }
-// }
-
-// function _extractPendingResourceTypeIds(type, cache) {
-//   if (!cache[type]) {
-//     return []
-//   }
-//
-//   const _typeCache = cache[type]
-//
-//   delete cache[type]
-//
-//   return _typeCache
-// }
-
-// function _filterCachedIds(type, ids, cache) {
-//   return ids.filter(id => {
-//     const type = cache[type]
-//
-//     if (type && type[id]) {
-//       return false
-//     }
-//
-//     return true
-//   })
-// }
 
 exports.default = JsonApi;
 module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/mapValidationErrors.js":
+/***/ "./src/prefetch.js":
+/*!*************************!*\
+  !*** ./src/prefetch.js ***!
+  \*************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _pre = __webpack_require__(/*! ./transform/pre */ "./src/transform/pre/index.js");
+
+var _pre2 = _interopRequireDefault(_pre);
+
+var _wrapFor = __webpack_require__(/*! ./helpers/wrapFor */ "./src/helpers/wrapFor.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const _wrappedPreTransform = (0, _wrapFor.forSingleOrMany)(_pre2.default);
+
+exports.default = async function prefetch(query, options, ...args) {
+  let {
+    data,
+    included
+  } = await query(options, ...args);
+
+  data = _wrappedPreTransform(data, options);
+
+  return {
+    data,
+    included
+  };
+};
+
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/promiseTree.js":
+/*!****************************!*\
+  !*** ./src/promiseTree.js ***!
+  \****************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-runtime/core-js/promise");
+
+var _promise2 = _interopRequireDefault(_promise);
+
+var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
+
+var _keys2 = _interopRequireDefault(_keys);
+
+var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
+
+var _set2 = _interopRequireDefault(_set);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _transformTreePath(path) {
+  let split;
+
+  if (Array.isArray(path)) {
+    split = path;
+  } else if (typeof path == 'string') {
+    split = path.split('.');
+  } else {
+    throw TypeError('Path should be a string or array');
+  }
+
+  return split.slice(0, -1).reduce((split, key) => {
+    split.push(key);
+    split.push('then');
+    return split;
+  }, []).concat(split.slice(-1));
+}
+
+function _createNode(run, then) {
+  return {
+    run,
+    then
+  };
+}
+
+function _createPromiseTree(paths) {
+  const then = {};
+
+  for (let path in paths) {
+    (0, _set2.default)(then, _transformTreePath(path), _createNode(paths[path], null));
+  }
+
+  const rootNode = _createNode(result => result, then);
+
+  return rootNode;
+}
+
+async function _runPromiseTree(result, node, rootNode = node) {
+  if (rootNode.rejected) {
+    throw 'cancelled';
+  }
+
+  try {
+    if (node) {
+      result = await node.run((await result));
+
+      if (node.then) {
+        const keys = (0, _keys2.default)(node.then);
+
+        await _promise2.default.all(keys.map(key => _runPromiseTree(result, node.then[key], rootNode)));
+      }
+
+      return result;
+    }
+  } catch (error) {
+    node.rejected = true;
+    throw error;
+  }
+}
+
+class PromiseTree {
+  constructor(paths) {
+    const tree = _createPromiseTree(paths);
+
+    Object.defineProperty(this, '_tree', {
+      value: tree
+    });
+  }
+
+  static run(paths, data) {
+    const promiseTree = new PromiseTree(paths);
+    return promiseTree.run(data);
+  }
+
+  run(data) {
+    return _runPromiseTree(data, this._tree);
+  }
+}
+exports.default = PromiseTree;
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/pre/alias.js":
 /*!************************************!*\
-  !*** ./src/mapValidationErrors.js ***!
+  !*** ./src/transform/pre/alias.js ***!
   \************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
@@ -744,483 +592,229 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-exports.default = error => ({
-  message: error.message,
-  path: error.dataPath,
-  schema: error.parentSchema.$id
-});
+var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
 
-module.exports = exports["default"];
+var _assign2 = _interopRequireDefault(_assign);
 
-/***/ }),
+var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
 
-/***/ "./src/paginationStrategies.js":
-/*!*************************************!*\
-  !*** ./src/paginationStrategies.js ***!
-  \*************************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
+var _omit2 = _interopRequireDefault(_omit);
 
-"use strict";
+var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
 
+var _set2 = _interopRequireDefault(_set);
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-const parsePaginationQueryParam = param => {
-  param = parseInt(param);
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
 
-  if (isNaN(param)) {
-    param = 0;
-  } else {
-    param = Math.floor(param);
-  }
-
-  return param;
-};
-
-const tranformPaginationQuery = (length, offset, limit) => {
-  offset = parsePaginationQueryParam(offset);
-  limit = parsePaginationQueryParam(limit);
-
-  if (offset < 0) {
-    offset += length;
-  }
-
-  if (offset < 0) {
-    offset = 0;
-  } else if (offset >= length) {
-    offset = length;
-  }
-
-  if (limit < 0) {
-    limit = 0;
-  } else if (offset + limit > length) {
-    limit = length - offset;
-  }
-
-  return {
-    offset,
-    limit
-  };
-};
-
-const offset = exports.offset = {
-  limit(clientLimit, serverLimit) {
-    let limit = parsePaginationQueryParam(clientLimit);
-
-    if (limit >= 1 && limit < serverLimit) {
-      limit = Math.floor(limit);
-    } else if (serverLimit) {
-      limit = serverLimit;
-    } else {
-      limit = Infinity;
-    }
-
-    return limit;
-  },
-
-  bounds(length, _offset, _limit) {
-    const {
-      offset,
-      limit
-    } = tranformPaginationQuery(length, _offset, _limit);
-
-    return {
-      offset,
-      end: offset + limit
-    };
-  },
-  self(length, _offset, _end, _limit) {
-    const {
-      offset,
-      limit
-    } = tranformPaginationQuery(length, _offset, _limit);
-
-    return {
-      page: {
-        offset,
-        limit
-      }
-    };
-  },
-  next(length, _offset, _end, _limit) {
-    const {
-      offset,
-      limit
-    } = tranformPaginationQuery(length, _end, _limit);
-
-    if (!limit) {
-      return null;
-    }
-
-    return {
-      offset,
-      limit
-    };
-  },
-  prev: (length, _offset, _end, _limit) => {
-    const {
-      offset,
-      limit
-    } = tranformPaginationQuery(_offset, _offset - _limit, _limit);
-
-    if (!limit) {
-      return null;
-    }
-
-    return {
-      offset,
-      limit
-    };
-  },
-  first: (length, _offset, _end, _limit) => {
-    const {
-      offset,
-      limit
-    } = tranformPaginationQuery(length, 0, _limit > length ? length : _limit > _offset && _offset > 0 ? _offset : _limit);
-
-    return {
-      offset,
-      limit: _limit
-    };
-  },
-  last: (length, _offset, _end, _limit) => {
-    const {
-      offset,
-      limit
-    } = tranformPaginationQuery(length, 2 * _limit < length ? length - _limit : _limit < length ? _end + _limit < length ? _end : length - _limit : 0, _limit);
-
-    return {
-      offset,
-      limit
-    };
-  }
-};
-
-/***/ }),
-
-/***/ "./src/schemas.yaml":
-/*!**************************!*\
-  !*** ./src/schemas.yaml ***!
-  \**************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = [
-	{
-		"$id": "/patch/document",
-		"properties": {
-			"testPropsDefault": {
-				"default": "test"
-			},
-			"decoded": {
-				"type": "array"
-			}
-		},
-		"required": [
-			"decoded",
-			"doc"
-		],
-		"oneOf": [
-			{
-				"properties": {
-					"testOneOfDefault": {
-						"default": "test"
-					},
-					"decoded": {
-						"items": [
-							{
-								"const": "data"
-							},
-							{
-								"pattern": "^((-)|([0-9])|([1-9][0-9]+))$"
-							}
-						]
-					},
-					"doc": {
-						"properties": {
-							"data": {
-								"default": []
-							}
-						}
-					}
-				}
-			}
-		]
-	},
-	{
-		"$id": "/",
-		"$async": true,
-		"allOf": [
-			{
-				"anyOf": [
-					{
-						"required": [
-							"data"
-						]
-					},
-					{
-						"required": [
-							"errors"
-						]
-					},
-					{
-						"required": [
-							"meta"
-						]
-					}
-				],
-				"errorMessage": "A document MUST contain at least one of the following top-level members: 'data', 'errors', 'meta'"
-			},
-			{
-				"not": {
-					"required": [
-						"errors",
-						"data"
-					]
-				},
-				"errorMessage": "The members data and errors MUST NOT coexist in the same document"
-			},
-			{
-				"not": {
-					"allOf": [
-						{
-							"not": {
-								"required": [
-									"data"
-								]
-							}
-						},
-						{
-							"required": [
-								"included"
-							]
-						}
-					]
-				},
-				"errorMessage": "If a document does not contain a top-level 'data' key, the 'included' member MUST NOT be present either"
-			},
-			{
-				"type": "object",
-				"properties": {
-					"data": {
-						"$ref": "/data"
-					},
-					"errors": {
-						"$ref": "/errors"
-					},
-					"meta": {
-						"$ref": "/meta"
-					},
-					"links": {
-						"$ref": "/links"
-					},
-					"included": {
-						"$ref": "/included"
-					},
-					"jsonapi": {
-						"type": "object"
-					}
-				},
-				"additionalProperties": false,
-				"errorMessage": {
-					"type": "A JSON object MUST be at the root of every JSON API request and response containing data",
-					"additionalProperties": "Unless otherwise noted, objects defined by this specification MUST NOT contain any additional members"
-				}
-			}
-		]
-	},
-	{
-		"$id": "/data",
-		"oneOf": [
-			{
-				"$ref": "/resource"
-			},
-			{
-				"$ref": "/included"
-			},
-			{
-				"type": "null"
-			}
-		],
-		"errorMessage": "Primary data MUST be either a single resource object, or a single resource identifier object, or null, for requests that target single resources, or an array of resource objects, or an array of resource identifier objects, or an empty array for requests that target resource collections"
-	},
-	{
-		"$id": "/errors",
-		"type": "array",
-		"items": {
-			"$ref": "/error"
-		},
-		"errorMessage": {
-			"type": "Error objects MUST be returned as an array keyed by errors in the top level of a JSON API document"
-		}
-	},
-	{
-		"$id": "/links",
-		"type": "object",
-		"patternProperties": {
-			"^.*": {
-				"$ref": "/link"
-			}
-		},
-		"additionalProperties": false,
-		"errorMessage": {
-			"type": "The value of each 'links' member MUST be an object"
-		}
-	},
-	{
-		"$id": "/included",
-		"type": "array",
-		"items": {
-			"$ref": "/resource"
-		}
-	},
-	{
-		"$id": "/resource",
-		"type": "object",
-		"properties": {
-			"id": {
-				"type": "string",
-				"errorMessage": "The values of the 'id' member MUST be strings"
-			},
-			"type": {
-				"type": "string",
-				"errorMessage": "The values of the 'type' member MUST be strings"
-			},
-			"meta": {
-				"$ref": "/meta"
-			},
-			"attributes": {
-				"type": "object"
-			},
-			"relationships": {
-				"type": "array",
-				"items": {
-					"$ref": "/resource"
-				}
-			},
-			"links": {
-				"$ref": "/links"
-			}
-		},
-		"required": [
-			"id",
-			"type"
-		],
-		"additionalProperties": false,
-		"errorMessage": {
-			"required": "Every resource object MUST contain an 'id' member and a 'type' member"
-		}
-	},
-	{
-		"$id": "/error",
-		"type": "object"
-	},
-	{
-		"$id": "/meta",
-		"type": "object"
-	},
-	{
-		"$id": "/link",
-		"oneOf": [
-			{
-				"type": [
-					"string"
-				]
-			},
-			{
-				"type": [
-					"object"
-				],
-				"properties": {
-					"href": {
-						"type": "string",
-						"errorMessage": "Member 'href' should be a string containing the link’s URL."
-					},
-					"meta": {
-						"$ref": "/meta"
-					}
-				},
-				"additionalProperties": false
-			}
-		],
-		"errorMessage": "A 'link' MUST be represented either a string containing the link’s URL, or an object which can contain the 'href' and 'meta' members"
-	}
-];
-
-/***/ }),
-
-/***/ "./src/validate.js":
-/*!*************************!*\
-  !*** ./src/validate.js ***!
-  \*************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.getSchemas = exports.addSchema = exports.validate = undefined;
-
-var _ajv = __webpack_require__(/*! ajv */ "ajv");
-
-var _ajv2 = _interopRequireDefault(_ajv);
-
-var _ajvErrors = __webpack_require__(/*! ajv-errors */ "ajv-errors");
-
-var _ajvErrors2 = _interopRequireDefault(_ajvErrors);
-
-var _schemas = __webpack_require__(/*! ./schemas */ "./src/schemas.yaml");
-
-var _schemas2 = _interopRequireDefault(_schemas);
+var _get2 = _interopRequireDefault(_get);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-const ajv = new _ajv2.default({
-  schemas: _schemas2.default,
-  verbose: true,
-  allErrors: true,
-  jsonPointers: true
-});
-(0, _ajvErrors2.default)(ajv, {});
+function assignAlias(data, alias, fullPath) {
+  if (typeof alias == 'string') {
+    return alias.length ? (0, _get2.default)(data, alias) : data;
+  } else {
+    let obj = Array.isArray(alias) ? [] : (0, _assign2.default)({}, data);
 
-const validate = exports.validate = (ref, data) => ajv.validate(ref, data);
-const addSchema = exports.addSchema = schemas => ajv.addShema(schema);
-const getSchemas = exports.getSchemas = refs => {
-  const schemas = {};
+    if (typeof alias == 'object') {
+      const _omitProps = [];
 
-  for (let key in ajv._schemas) {
-    schemas[key] = ajv._schemas[key].schema;
+      for (let key in alias) {
+        const path = fullPath + key;
+
+        let _alias = alias[key];
+
+        const aliased = assignAlias(data, _alias, path);
+
+        if (path != _alias) {
+          _omitProps.push(_alias);
+        }
+
+        (0, _set2.default)(obj, key, aliased);
+      }
+
+      if (_omitProps.length) {
+        obj = (0, _omit2.default)(obj, _omitProps);
+      }
+    }
+
+    return obj;
   }
+}
 
-  return schemas;
+exports.default = (data, options) => assignAlias(data, options, '');
+
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/pre/defineSourceProp.js":
+/*!***********************************************!*\
+  !*** ./src/transform/pre/defineSourceProp.js ***!
+  \***********************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+exports.default = (data, source) => {
+  Object.defineProperty(data, '_source', {
+    value: source
+  });
 };
 
-/***/ }),
-
-/***/ "ajv":
-/*!**********************!*\
-  !*** external "ajv" ***!
-  \**********************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("ajv");
+module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "ajv-errors":
-/*!*****************************!*\
-  !*** external "ajv-errors" ***!
-  \*****************************/
+/***/ "./src/transform/pre/index.js":
+/*!************************************!*\
+  !*** ./src/transform/pre/index.js ***!
+  \************************************/
 /*! no static exports found */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-module.exports = require("ajv-errors");
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
+
+var _merge2 = _interopRequireDefault(_merge);
+
+var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+
+var _pick2 = _interopRequireDefault(_pick);
+
+var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
+
+var _omit2 = _interopRequireDefault(_omit);
+
+var _defaults = __webpack_require__(/*! lodash/defaults */ "lodash/defaults");
+
+var _defaults2 = _interopRequireDefault(_defaults);
+
+var _alias = __webpack_require__(/*! ./alias */ "./src/transform/pre/alias.js");
+
+var _alias2 = _interopRequireDefault(_alias);
+
+var _rootMembers = __webpack_require__(/*! ./rootMembers */ "./src/transform/pre/rootMembers.js");
+
+var _rootMembers2 = _interopRequireDefault(_rootMembers);
+
+var _defineSourceProp = __webpack_require__(/*! ./defineSourceProp */ "./src/transform/pre/defineSourceProp.js");
+
+var _defineSourceProp2 = _interopRequireDefault(_defineSourceProp);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const preTransform = (data, options) => {
+  let source = data;
+
+  if ('alias' in options) {
+    data = (0, _alias2.default)(data, options.alias);
+  }
+
+  data = (0, _rootMembers2.default)(data);
+
+  if ('merge' in options) {
+    data = (0, _merge2.default)(data, options.merge);
+  }
+
+  if ('defaults' in options) {
+    (0, _defaults2.default)(data, options.defaults);
+  }
+
+  if ('fields' in options) {
+    data.attributes = (0, _omit2.default)(data.attributes, options.fields);
+  }
+
+  (0, _defineSourceProp2.default)(data, source);
+
+  return data;
+};
+
+exports.default = preTransform;
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/pre/rootMembers.js":
+/*!******************************************!*\
+  !*** ./src/transform/pre/rootMembers.js ***!
+  \******************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
+
+var _keys2 = _interopRequireDefault(_keys);
+
+var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
+
+var _omit2 = _interopRequireDefault(_omit);
+
+var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+
+var _pick2 = _interopRequireDefault(_pick);
+
+var _defaults = __webpack_require__(/*! lodash/defaults */ "lodash/defaults");
+
+var _defaults2 = _interopRequireDefault(_defaults);
+
+var _resourceProps = __webpack_require__(/*! ../resourceProps */ "./src/transform/resourceProps.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+exports.default = data => {
+  const rootAttributes = (0, _omit2.default)(data, _resourceProps.RESOURCE_PROPS);
+
+  if ((0, _keys2.default)(rootAttributes)) {
+    (0, _defaults2.default)(data, {
+      attributes: rootAttributes
+    });
+  }
+
+  data = (0, _pick2.default)(data, _resourceProps.RESOURCE_PROPS);
+
+  return data;
+};
+
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/resourceProps.js":
+/*!****************************************!*\
+  !*** ./src/transform/resourceProps.js ***!
+  \****************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+const RESOURCE_IDENTIFIER_PROPS = exports.RESOURCE_IDENTIFIER_PROPS = ['id', 'type', 'meta'];
+const ADDITIONAL_RESOURCE_PROPS = exports.ADDITIONAL_RESOURCE_PROPS = ['attributes', 'relationships', 'links'];
+const RESOURCE_PROPS = exports.RESOURCE_PROPS = [...RESOURCE_IDENTIFIER_PROPS, ...ADDITIONAL_RESOURCE_PROPS];
 
 /***/ }),
 
@@ -1257,6 +851,17 @@ module.exports = require("babel-runtime/core-js/object/keys");
 
 /***/ }),
 
+/***/ "babel-runtime/core-js/object/values":
+/*!******************************************************!*\
+  !*** external "babel-runtime/core-js/object/values" ***!
+  \******************************************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("babel-runtime/core-js/object/values");
+
+/***/ }),
+
 /***/ "babel-runtime/core-js/promise":
 /*!************************************************!*\
   !*** external "babel-runtime/core-js/promise" ***!
@@ -1268,47 +873,14 @@ module.exports = require("babel-runtime/core-js/promise");
 
 /***/ }),
 
-/***/ "babel-runtime/helpers/asyncToGenerator":
-/*!*********************************************************!*\
-  !*** external "babel-runtime/helpers/asyncToGenerator" ***!
-  \*********************************************************/
+/***/ "lodash/defaults":
+/*!**********************************!*\
+  !*** external "lodash/defaults" ***!
+  \**********************************/
 /*! no static exports found */
 /***/ (function(module, exports) {
 
-module.exports = require("babel-runtime/helpers/asyncToGenerator");
-
-/***/ }),
-
-/***/ "json8-patch":
-/*!******************************!*\
-  !*** external "json8-patch" ***!
-  \******************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("json8-patch");
-
-/***/ }),
-
-/***/ "lodash/cloneDeep":
-/*!***********************************!*\
-  !*** external "lodash/cloneDeep" ***!
-  \***********************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/cloneDeep");
-
-/***/ }),
-
-/***/ "lodash/defaultsDeep":
-/*!**************************************!*\
-  !*** external "lodash/defaultsDeep" ***!
-  \**************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/defaultsDeep");
+module.exports = require("lodash/defaults");
 
 /***/ }),
 
@@ -1364,6 +936,17 @@ module.exports = require("lodash/pick");
 /***/ (function(module, exports) {
 
 module.exports = require("lodash/set");
+
+/***/ }),
+
+/***/ "lodash/setWith":
+/*!*********************************!*\
+  !*** external "lodash/setWith" ***!
+  \*********************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("lodash/setWith");
 
 /***/ })
 

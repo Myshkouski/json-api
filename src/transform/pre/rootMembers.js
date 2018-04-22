@@ -1,17 +1,17 @@
 import omit from 'lodash/omit'
+import pick from 'lodash/pick'
 import defaults from 'lodash/defaults'
 
 import {
   RESOURCE_PROPS
 } from '../resourceProps'
-import applyAttriubtes from './applyAttriubtes'
 
 export default data => {
   const rootAttributes = omit(data, RESOURCE_PROPS)
 
-  if (Object.keys(notIncludedAttributes)) {
+  if (Object.keys(rootAttributes)) {
     defaults(data, {
-      attributes: notIncludedAttributes
+      attributes: rootAttributes
     })
   }
 

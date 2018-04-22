@@ -44,7 +44,7 @@ async function _runPromiseTree(result, node, rootNode = node) {
 
   try {
     if (node) {
-      await node.run(result)
+      result = await node.run(await result)
 
       if (node.then) {
         const keys = Object.keys(node.then)
