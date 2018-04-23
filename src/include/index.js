@@ -1,6 +1,6 @@
 import get from 'lodash/get'
 
-import preTransform from '../transform/pre'
+import alias from '../transform/pre/alias'
 import preFetch from '../prefetch'
 import PromiseTree from '../promiseTree'
 
@@ -19,8 +19,22 @@ import {
 
 const forEach = forSingleOrMany((data, f) => f(data))
 
-const extractIncluded = (data, options) => {
+const transformIds = forSingleOrMany((data, options) => {
+  if('alias' in options) {
+    data = alias(data, options.alias)
+  }
 
+  return data
+})
+
+const extractIncluded = (data, options) => {
+  if('from' in options) {
+    data = get(data, options.from)
+  }
+
+  data = transformIds(data, options)
+
+  return data
 }
 
 const assignIncluded = forSingleOrMany((data, options, cache) => {
@@ -33,10 +47,10 @@ const assignIncluded = forSingleOrMany((data, options, cache) => {
     for (let type in options) {
       let typeOptions = options[type]
 
-      let resourceIds = get(data._source, typeOptions.from)
+      let resourceIds = extractIncluded(data._source, typeOptions)
 
-      forEach(resourceIds, id => {
-        data._include.link([type, id])
+      forEach(resourceIds, resourceId => {
+        data._include.set([type, resourceId.id], null)
       })
     }
   }
