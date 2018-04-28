@@ -2,7 +2,7 @@ import get from 'lodash/get'
 
 import alias from '../transform/pre/alias'
 import preFetch from '../prefetch'
-import PromiseTree from '../promiseTree'
+// import PromiseTree from '../promiseTree'
 
 import {
   IndexedCache,
@@ -50,7 +50,7 @@ const assignIncluded = forSingleOrMany((data, options, cache) => {
       let resourceIds = extractIncluded(data._source, typeOptions)
 
       forEach(resourceIds, resourceId => {
-        data._include.set([type, resourceId.id], null)
+        data._include.link([type, resourceId.id])
       })
     }
   }
