@@ -1,80 +1,90 @@
-import set from 'lodash/set'
-
-function _transformTreePath(path) {
-  let split
-
-  if(Array.isArray(path)) {
-    split = path
-  } else if(typeof path == 'string') {
-    split = path.split('.')
-  } else {
-    throw TypeError('Path should be a string or array')
+function _createPromiseTree( paths ) {
+  if ( typeof paths !== 'object' ) {
+    throw new TypeError( `First argument should be object` )
   }
 
-  return split.slice(0, -1).reduce((split, key) => {
-    split.push(key)
-    split.push('then')
-    return split
-  }, []).concat(split.slice(-1))
+  const tree = Object.entries( paths )
+    .reduce( ( tree, [ path, value ] ) => {
+      if ( typeof path === 'string' ) {
+        path = path.split( '.' )
+      }
+
+      const length = path.length
+
+      const targetNode = path.reduce( ( node, key ) => {
+        if ( !( 'resolve' in node ) ) {
+          node.resolve = null
+        }
+
+        if ( !node.then ) {
+          node.then = {}
+        }
+
+        if ( !( key in node.then ) ) {
+          node.then[ key ] = {}
+        }
+
+        return node.then[ key ]
+      }, tree )
+
+      targetNode.resolve = value
+      if ( !targetNode.then ) {
+        targetNode.then = null
+      }
+
+      return tree
+    }, {} )
+
+  return tree
 }
 
-function _createNode(run, then) {
-  return {
-    run,
-    then
-  }
-}
-
-function _createPromiseTree(paths) {
-  const then = {}
-
-  for (let path in paths) {
-    set(then, _transformTreePath(path), _createNode(paths[path], null))
+function _runPromiseTree( result, node, rootNode = node ) {
+  if ( rootNode.rejected ) {
+    return rootNode.rejected
   }
 
-  const rootNode = _createNode(result => result, then)
-
-  return rootNode
-}
-
-async function _runPromiseTree(result, node, rootNode = node) {
-  if(rootNode.rejected) {
-    throw 'cancelled'
-  }
-
-  try {
-    if (node) {
-      result = await node.run(await result)
-
-      if (node.then) {
-        const keys = Object.keys(node.then)
-
-        await Promise.all(keys.map(key => _runPromiseTree(result, node.then[key], rootNode)))
+  return Promise.resolve( result )
+    .then( result => {
+      if ( node.resolve ) {
+        return node.resolve( result )
       }
 
       return result
-    }
-  } catch(error) {
-    node.rejected = true
-    throw error
-  }
+    } )
+    .then( result => {
+      if ( node.then ) {
+        return Promise.all(
+          Object.keys( node.then )
+          .map( key => {
+            return _runPromiseTree( result, node.then[ key ], rootNode )
+          } )
+        )
+      }
+
+      return result
+    } )
+    .catch( error => {
+      node.rejected = error
+      throw error
+    } )
 }
 
-export default class PromiseTree {
-  constructor(paths) {
-    const tree = _createPromiseTree(paths)
+export default function PromiseTree( paths, result ) {
+  const tree = _createPromiseTree( paths )
 
-    Object.defineProperty(this, '_tree', {
-      value: tree
-    })
-  }
+  let rejected, set = false
 
-  static run(paths, data) {
-    const promiseTree = new PromiseTree(paths)
-    return promiseTree.run(data)
-  }
+  Object.defineProperty( tree, 'rejected', {
+    get() {
+      return rejected
+    },
+    set( value ) {
+      if ( !set ) {
+        set = true
+        rejected = value
+      }
+    }
+  } )
 
-  run(data) {
-    return _runPromiseTree(data, this._tree)
-  }
+  return _runPromiseTree( result, tree )
 }
