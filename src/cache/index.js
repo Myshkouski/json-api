@@ -9,7 +9,7 @@ export class IndexedCache {
     })
   }
 
-  get keys() {
+  keys() {
     return Object.keys(this._cache)
   }
 
@@ -46,12 +46,11 @@ export class LinkedIndexedCache extends IndexedCache {
 
   link(path) {
     if(typeof path === 'string') {
-      path = path.split('.')
+      path = path.replace('.', )
     }
 
     const base = path.slice(0, -1)
 
-    const prop = path[path.length - 1]
     let target
 
     if (base.length) {
@@ -64,6 +63,8 @@ export class LinkedIndexedCache extends IndexedCache {
     } else {
       target = this._cache
     }
+
+    const prop = path[path.length - 1]
 
     Object.defineProperty(target, prop, {
       enumerable: true,

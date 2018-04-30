@@ -119,7 +119,7 @@ class IndexedCache {
     });
   }
 
-  get keys() {
+  keys() {
     return (0, _keys2.default)(this._cache);
   }
 
@@ -157,12 +157,11 @@ class LinkedIndexedCache extends IndexedCache {
 
   link(path) {
     if (typeof path === 'string') {
-      path = path.split('.');
+      path = path.replace('.');
     }
 
     const base = path.slice(0, -1);
 
-    const prop = path[path.length - 1];
     let target;
 
     if (base.length) {
@@ -175,6 +174,8 @@ class LinkedIndexedCache extends IndexedCache {
     } else {
       target = this._cache;
     }
+
+    const prop = path[path.length - 1];
 
     (0, _defineProperty2.default)(target, prop, {
       enumerable: true,
@@ -210,6 +211,14 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
+
+var _assign2 = _interopRequireDefault(_assign);
+
+var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
+
+var _merge2 = _interopRequireDefault(_merge);
+
 var _cache = __webpack_require__(/*! ./cache */ "./src/cache/index.js");
 
 var _prefetch = __webpack_require__(/*! ./prefetch */ "./src/prefetch.js");
@@ -220,30 +229,99 @@ var _include = __webpack_require__(/*! ./include */ "./src/include/index.js");
 
 var _include2 = _interopRequireDefault(_include);
 
+var _post = __webpack_require__(/*! ./transform/post */ "./src/transform/post/index.js");
+
+var _post2 = _interopRequireDefault(_post);
+
+var _promiseTree = __webpack_require__(/*! ./promiseTree */ "./src/promiseTree.js");
+
+var _promiseTree2 = _interopRequireDefault(_promiseTree);
+
 var _cache2 = __webpack_require__(/*! ./helpers/cache */ "./src/helpers/cache.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 exports.default = async function fetch(queries, action, type, options, ...args) {
   const resourceCache = new _cache.IndexedCache();
-  const dataCache = new _cache.LinkedIndexedCache(resourceCache);
-  const includedCache = new _cache.LinkedIndexedCache(resourceCache);
+
+  async function _fetch(type, typeOptions, resourceCache) {
+    const dataCache = new _cache.LinkedIndexedCache(resourceCache);
+
+    const prefetched = await (0, _prefetch2.default)(queries[type][action], typeOptions, ...args);
+
+    // add primary resources to indexed resource cache
+    const result = {};
+    (0, _cache2.cache)(prefetched.data, dataCache);
+    result.dataCache = dataCache;
+
+    if ('include' in typeOptions) {
+      // assign primary data links to included resources
+
+      const linkageCache = new _cache.LinkedIndexedCache(resourceCache);
+      (0, _include2.default)(prefetched.data, typeOptions.include, typeOptions.relationships, linkageCache);
+
+      result.linkageCache = linkageCache;
+
+      if ('included' in prefetched) {
+        // add included resources to indexed resource cache
+
+        const includedCache = new _cache.LinkedIndexedCache(resourceCache);
+        (0, _cache2.cache)(prefetched.included, includedCache);
+        result.includedCache = includedCache;
+      }
+    }
+
+    return result;
+  }
 
   const typeOptions = options[type];
 
-  let {
-    data,
-    included
-  } = await (0, _prefetch2.default)(queries[type][action], typeOptions, ...args);
+  const flow = [type, ...(typeOptions.include || []).map(path => type + '.' + path)].reduce((flow, path) => {
+    const type = path.split('.').pop();
+    let typeOptions = options[type];
 
-  (0, _cache2.cache)(data, dataCache);
-  (0, _cache2.cache)(included, includedCache);
+    flow[path] = async (result = {}, fetchIncluded) => {
+      if (result.includedCache) {
+        return result;
+      }
 
-  if (typeOptions.include) {
-    await (0, _include2.default)(data, includedCache, queries, action, type, options, ...args);
-  }
+      if (result.linkageCache) {
+        const ids = result.linkageCache.get(type).keys();
+        typeOptions = (0, _assign2.default)({}, typeOptions);
+        typeOptions.filter = (0, _merge2.default)({}, typeOptions.filter, {
+          id: ids
+        });
+      }
 
-  included = (0, _cache2.extract)(includedCache);
+      result = await _fetch(type, typeOptions, result.linkageCache || resourceCache);
+
+      await fetchIncluded();
+
+      return result;
+    };
+
+    return flow;
+  }, {});
+
+  const result = await new _promiseTree2.default(flow);
+
+  const {
+    dataCache,
+    includedCache,
+    linkageCache
+  } = result[type];
+
+  let data = (0, _cache2.extract)(dataCache);
+  let included = (0, _cache2.extract)(linkageCache);
+  data = (0, _post2.default)(data, typeOptions);
+
+  console.dir(data, {
+    depth: Infinity
+  });
+
+  console.dir(included, {
+    depth: Infinity
+  });
 
   return {
     data,
@@ -276,15 +354,24 @@ var _values2 = _interopRequireDefault(_values);
 
 var _wrapFor = __webpack_require__(/*! ./wrapFor */ "./src/helpers/wrapFor.js");
 
+var _cache = __webpack_require__(/*! ../cache */ "./src/cache/index.js");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 const cache = exports.cache = (0, _wrapFor.forSingleOrMany)((data, indexedCache) => {
-  indexedCache.set([data.type, data.id], data);
+  if (data) {
+    indexedCache.set([data.type, data.id], data);
+  }
 });
 
 const extract = exports.extract = indexedCache => {
-  return indexedCache.keys.reduce((array, type) => {
-    const values = (0, _values2.default)(indexedCache.get(type));
+  if (!(indexedCache instanceof _cache.IndexedCache)) {
+    return null;
+  }
+
+  return indexedCache.keys().reduce((array, type) => {
+    const typeCache = indexedCache.get(type);
+    const values = (0, _values2.default)(typeCache);
     return array.concat(values);
   }, []);
 };
@@ -304,24 +391,24 @@ const extract = exports.extract = indexedCache => {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.forSingleOrMany = forSingleOrMany;
 exports.forMany = forMany;
-function forSingleOrMany(f) {
-  return function (data, ...args) {
+exports.forSingleOrMany = forSingleOrMany;
+function forMany(f) {
+  return function () {
+    const data = arguments[0];
     if (Array.isArray(data)) {
-      return data.map(data => f.call(this, data, ...args));
-    } else if (typeof data == 'object') {
-      return f.apply(this, arguments);
+      return f.apply(this, args);
     }
     return data;
   };
 }
 
-function forMany(f) {
-  return function (...args) {
-    const data = args[0];
+function forSingleOrMany(f) {
+  return function (data, ...args) {
     if (Array.isArray(data)) {
-      return f.apply(this, args);
+      return data.map(data => f.apply(this, [data, ...args])).filter(data => !(data === undefined || data === null));
+    } else {
+      return f.apply(this, arguments);
     }
     return data;
   };
@@ -343,97 +430,65 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
-
-var _assign2 = _interopRequireDefault(_assign);
-
-var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
-
-var _keys2 = _interopRequireDefault(_keys);
-
 var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
 
 var _get2 = _interopRequireDefault(_get);
 
-var _pre = __webpack_require__(/*! ../transform/pre */ "./src/transform/pre/index.js");
+var _alias = __webpack_require__(/*! ../transform/pre/alias */ "./src/transform/pre/alias.js");
 
-var _pre2 = _interopRequireDefault(_pre);
-
-var _prefetch = __webpack_require__(/*! ../prefetch */ "./src/prefetch.js");
-
-var _prefetch2 = _interopRequireDefault(_prefetch);
-
-var _promiseTree = __webpack_require__(/*! ../promiseTree */ "./src/promiseTree.js");
-
-var _promiseTree2 = _interopRequireDefault(_promiseTree);
+var _alias2 = _interopRequireDefault(_alias);
 
 var _cache = __webpack_require__(/*! ../cache */ "./src/cache/index.js");
-
-var _cache2 = __webpack_require__(/*! ../helpers/cache */ "./src/helpers/cache.js");
 
 var _wrapFor = __webpack_require__(/*! ../helpers/wrapFor */ "./src/helpers/wrapFor.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-const forEach = (0, _wrapFor.forSingleOrMany)((data, f) => f(data));
+const forEachResourceIdentifier = (0, _wrapFor.forSingleOrMany)((data, f) => {
+  if (data && !(data.id === undefined || data.id === null)) {
+    f(data);
+  }
+});
 
-const extractIncluded = (data, options) => {};
+const transformIds = (0, _wrapFor.forSingleOrMany)((data, options) => {
+  if ('alias' in options) {
+    data = (0, _alias2.default)(data, options.alias);
+  }
 
-const assignIncluded = (0, _wrapFor.forSingleOrMany)((data, options, cache) => {
+  return data;
+});
+
+const extractIncluded = (data, options) => {
+  if ('from' in options) {
+    data = (0, _get2.default)(data, options.from);
+  }
+
+  data = transformIds(data, options);
+
+  return data;
+};
+
+const assignIncluded = (0, _wrapFor.forSingleOrMany)((data, includeOptions, relationshipsOptions, cache) => {
   if (data) {
     Object.defineProperty(data, '_include', {
-      // enumerable: true,
+      enumerable: true,
       value: new _cache.LinkedIndexedCache(cache)
     });
 
-    for (let type in options) {
-      let typeOptions = options[type];
+    for (let type of includeOptions) {
+      const typeOptions = relationshipsOptions[type];
 
-      let resourceIds = (0, _get2.default)(data._source, typeOptions.from);
+      let resourceIds = extractIncluded(data._source, typeOptions);
 
-      forEach(resourceIds, id => {
-        data._include.link([type, id]);
+      forEachResourceIdentifier(resourceIds, resourceId => {
+        data._include.link([type, resourceId.id]);
       });
     }
   }
 });
 
-exports.default = async function include(data, includedCache, queries, action, type, options, ...args) {
-  const typeOptions = options[type];
-
-  assignIncluded(data, typeOptions.include, includedCache);
-
-  function createIncludeDict(include) {
-    return (0, _keys2.default)(include).reduce((dict, path) => {
-      const type = path.split('.').pop();
-
-      dict[path] = async () => {
-        const typeOptions = (0, _assign2.default)({}, options[type], {
-          filter: {
-            id: (0, _keys2.default)(includedCache.get(type))
-          }
-        });
-
-        const {
-          data,
-          included
-        } = await (0, _prefetch2.default)(queries[type][action], typeOptions, ...args);
-
-        (0, _cache2.cache)(data, includedCache);
-        (0, _cache2.cache)(included, includedCache);
-
-        return includedCache;
-      };
-
-      return dict;
-    }, {});
-  }
-
-  const dict = createIncludeDict(typeOptions.include);
-
-  const includePromiseTree = new _promiseTree2.default(dict);
-
-  await includePromiseTree.run();
+exports.default = async function include(data, includeOptions, relationshipsOptions, linksCache) {
+  assignIncluded(data, includeOptions, relationshipsOptions, linksCache);
 };
 
 module.exports = exports['default'];
@@ -568,99 +623,269 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-runtime/core-js/promise");
-
-var _promise2 = _interopRequireDefault(_promise);
-
 var _keys = __webpack_require__(/*! babel-runtime/core-js/object/keys */ "babel-runtime/core-js/object/keys");
 
 var _keys2 = _interopRequireDefault(_keys);
 
-var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
+var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-runtime/core-js/promise");
 
-var _set2 = _interopRequireDefault(_set);
+var _promise2 = _interopRequireDefault(_promise);
+
+var _defineProperties = __webpack_require__(/*! babel-runtime/core-js/object/define-properties */ "babel-runtime/core-js/object/define-properties");
+
+var _defineProperties2 = _interopRequireDefault(_defineProperties);
+
+var _entries = __webpack_require__(/*! babel-runtime/core-js/object/entries */ "babel-runtime/core-js/object/entries");
+
+var _entries2 = _interopRequireDefault(_entries);
+
+exports.default = PromiseTree;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _transformTreePath(path) {
-  let split;
+function once(f) {
+  let called = false;
 
-  if (Array.isArray(path)) {
-    split = path;
-  } else if (typeof path == 'string') {
-    split = path.split('.');
-  } else {
-    throw TypeError('Path should be a string or array');
-  }
-
-  return split.slice(0, -1).reduce((split, key) => {
-    split.push(key);
-    split.push('then');
-    return split;
-  }, []).concat(split.slice(-1));
-}
-
-function _createNode(run, then) {
-  return {
-    run,
-    then
+  return function () {
+    if (!called) {
+      called = true;
+      return f.apply(this, arguments);
+    }
   };
 }
 
 function _createPromiseTree(paths) {
-  const then = {};
-
-  for (let path in paths) {
-    (0, _set2.default)(then, _transformTreePath(path), _createNode(paths[path], null));
+  if (typeof paths !== 'object') {
+    throw new TypeError(`First argument should be object`);
   }
 
-  const rootNode = _createNode(result => result, then);
+  const tree = (0, _entries2.default)(paths).reduce((tree, [path, value]) => {
+    const _path = path;
+    if (typeof path === 'string') {
+      path = path.split('.');
+    }
 
-  return rootNode;
+    const length = path.length;
+
+    const targetNode = path.reduce((node, key) => {
+      if (!('resolve' in node)) {
+        node.resolve = null;
+      }
+
+      if (!node.then) {
+        node.then = {};
+      }
+
+      if (!(key in node.then)) {
+        node.then[key] = {};
+      }
+
+      return node.then[key];
+    }, tree);
+
+    (0, _defineProperties2.default)(targetNode, {
+      path: {
+        value: path
+      },
+      resolved: {
+        get() {
+          return tree._resolvedTree[_path];
+        },
+        set(value) {
+          tree._resolvedTree[_path] = value;
+        }
+      }
+    });
+    targetNode.resolve = value;
+    if (!targetNode.then) {
+      targetNode.then = null;
+    }
+
+    return tree;
+  }, {});
+
+  Object.defineProperty(tree, '_resolvedTree', {
+    value: {}
+  });
+
+  return tree;
 }
 
-async function _runPromiseTree(result, node, rootNode = node) {
+function _resolvePromiseTree(result, node, rootNode = node) {
   if (rootNode.rejected) {
-    throw 'cancelled';
+    return rootNode.rejected;
   }
 
-  try {
-    if (node) {
-      result = await node.run((await result));
-
+  return _promise2.default.resolve(result).then(result => {
+    const resolveSubnodes = once(() => {
       if (node.then) {
-        const keys = (0, _keys2.default)(node.then);
-
-        await _promise2.default.all(keys.map(key => _runPromiseTree(result, node.then[key], rootNode)));
+        return _promise2.default.all((0, _keys2.default)(node.then).map(key => {
+          return _resolvePromiseTree(result, node.then[key], rootNode);
+        })).then(() => result);
       }
 
       return result;
-    }
-  } catch (error) {
-    node.rejected = true;
-    throw error;
-  }
-}
-
-class PromiseTree {
-  constructor(paths) {
-    const tree = _createPromiseTree(paths);
-
-    Object.defineProperty(this, '_tree', {
-      value: tree
     });
-  }
 
-  static run(paths, data) {
-    const promiseTree = new PromiseTree(paths);
-    return promiseTree.run(data);
-  }
-
-  run(data) {
-    return _runPromiseTree(data, this._tree);
-  }
+    if (node.resolve) {
+      return node.resolve(result, resolveSubnodes);
+    } else {
+      return resolveSubnodes();
+    }
+  }).then(result => {
+    node.resolved = result;
+    return rootNode._resolvedTree;
+  }).catch(error => {
+    node.rejected = error;
+    throw error;
+  });
 }
-exports.default = PromiseTree;
+
+function PromiseTree(paths, result) {
+  const tree = _createPromiseTree(paths);
+
+  let rejected,
+      set = false;
+
+  Object.defineProperty(tree, 'rejected', {
+    get() {
+      return rejected;
+    },
+    set(value) {
+      if (!set) {
+        set = true;
+        rejected = value;
+      }
+    }
+  });
+
+  return _resolvePromiseTree(result, tree);
+}
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/post/index.js":
+/*!*************************************!*\
+  !*** ./src/transform/post/index.js ***!
+  \*************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _wrapFor = __webpack_require__(/*! ../../helpers/wrapFor */ "./src/helpers/wrapFor.js");
+
+var _sort = __webpack_require__(/*! ./sort */ "./src/transform/post/sort.js");
+
+var _sort2 = _interopRequireDefault(_sort);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const posttransform = (data, typeOptions) => {
+  if ('sort' in typeOptions) {
+    data = (0, _sort2.default)(data, typeOptions.sort);
+  }
+
+  // if('page' in typeOptions) {
+  //   data = paginate(data, typeOptions.page)
+  // }
+
+  return data;
+};
+
+// import paginate from './paginate'
+exports.default = posttransform;
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/post/sort.js":
+/*!************************************!*\
+  !*** ./src/transform/post/sort.js ***!
+  \************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
+
+var _get2 = _interopRequireDefault(_get);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _sortByNumberOrCharCodes(vector, a, b) {
+  if (a > b) {
+    return vector;
+  } else if (a < b) {
+    return -1 * vector;
+  }
+
+  return 0;
+}
+
+function _sortByKey(rule, a, b) {
+  const [key, vector] = rule;
+  return _sortByNumberOrCharCodes(vector, (0, _get2.default)(a, key), (0, _get2.default)(b, key));
+}
+
+function _parseSortRules(options) {
+
+  return string.split(',');
+}
+
+const applySort = (data, options) => {
+  if (typeof options === 'string') {
+    options = options.split(',');
+  }
+
+  if (!Array.isArray(options)) {
+    throw new TypeError('Sort options should be an array or string');
+  }
+
+  options = options.map(rule => {
+    if (typeof rule === 'string') {
+      rule = rule[0] == '-' ? [rule.slice(1), -1] : [rule, 1];
+    }
+
+    if (!Array.isArray(rule)) {
+      throw new TypeError('Sort rules should be an array or string');
+    }
+
+    if (typeof rule[1] !== 'number') {
+      throw new TypeError('Sort order should be a number');
+    }
+
+    return rule;
+  });
+
+  return data.sort((a, b) => {
+    if ('attributes' in a && 'attributes' in b) {
+      for (let rule of options) {
+        const res = _sortByKey(rule, a.attributes, b.attributes);
+
+        if (res) {
+          return res;
+        }
+      }
+    }
+
+    return 0;
+  });
+};
+
+exports.default = applySort;
 module.exports = exports['default'];
 
 /***/ }),
@@ -920,6 +1145,17 @@ module.exports = require("babel-runtime/core-js/object/assign");
 
 /***/ }),
 
+/***/ "babel-runtime/core-js/object/define-properties":
+/*!*****************************************************************!*\
+  !*** external "babel-runtime/core-js/object/define-properties" ***!
+  \*****************************************************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("babel-runtime/core-js/object/define-properties");
+
+/***/ }),
+
 /***/ "babel-runtime/core-js/object/define-property":
 /*!***************************************************************!*\
   !*** external "babel-runtime/core-js/object/define-property" ***!
@@ -928,6 +1164,17 @@ module.exports = require("babel-runtime/core-js/object/assign");
 /***/ (function(module, exports) {
 
 module.exports = require("babel-runtime/core-js/object/define-property");
+
+/***/ }),
+
+/***/ "babel-runtime/core-js/object/entries":
+/*!*******************************************************!*\
+  !*** external "babel-runtime/core-js/object/entries" ***!
+  \*******************************************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("babel-runtime/core-js/object/entries");
 
 /***/ }),
 

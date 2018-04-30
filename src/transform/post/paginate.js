@@ -1,18 +1,15 @@
-const applyPagination = (data, options, body) => {
+const applyPagination = (data, options) => {
   const strategy = pagination[options.strategy]
 
   if (strategy) {
     const {
       offset,
       end
-    } = strategy.bounds(data.length, options.offset, options.limit)
+    } = strategy.bounds(data.length, options.offset, options.limit);
 
-    ;
     ['self', 'first', 'last', 'prev', 'next'].forEach(key => {
       if (typeof strategy[key] == 'function') {
         const query = strategy[key](data.length, offset, end, options.limit)
-
-        // set(body, `links.${ key }`, query)
       }
     })
 

@@ -1,19 +1,19 @@
-export function forSingleOrMany(f) {
-  return function(data, ...args) {
+export function forMany(f) {
+  return function() {
+    const data = arguments[0]
     if (Array.isArray(data)) {
-      return data.map(data => f.call(this, data, ...args))
-    } else if (typeof data == 'object') {
-      return f.apply(this, arguments)
+      return f.apply(this, args)
     }
     return data
   }
 }
 
-export function forMany(f) {
-  return function(...args) {
-    const data = args[0]
+export function forSingleOrMany(f) {
+  return function(data, ...args) {
     if (Array.isArray(data)) {
-      return f.apply(this, args)
+      return data.map(data => f.apply(this, [data, ...args])).filter(data => !(data === undefined || data === null))
+    } else {
+      return f.apply(this, arguments)
     }
     return data
   }

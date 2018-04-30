@@ -64,7 +64,7 @@ describe('Module', () => {
 // })
 
 describe('Instance Methods', () => {
-  let jsonapi, resourceName, fetchCollection, fetchOps
+  let jsonapi, resourceName, fetchArticles, fetchComments, fetchPeople
 
   beforeEach(() => {
     jsonapi = new JsonApi()
@@ -88,15 +88,16 @@ describe('Instance Methods', () => {
       }
     }
 
-    fetchCollection = _wrap(options => {
+    fetchArticles = _wrap(options => {
       const data = [{
         _id: 2,
-        name: 'two',
-        ops: [3]
+        name: 'Rails is Omakase',
+        comments: null
       }, {
         _id: 1,
-        name: 'one',
-        ops: [1, 2]
+        name: 'JSON API paints my bikeshed!',
+        comments: [5, 12],
+        author: 9
       }]
 
       return {
@@ -104,26 +105,36 @@ describe('Instance Methods', () => {
       }
     })
 
-    fetchOps = _wrap(options => {
-      const data = [{
-          _id: 1,
-          action: 'create',
-          timestamp: Date.now(),
-          cols: [1]
+    fetchComments = _wrap(options => {
+      const data = [
+        {
+          _id: 5,
+          text: 'First!',
+          author: 2
         },
         {
-          _id: 2,
-          action: 'read',
-          timestamp: Date.now() + 1 * 1000,
-          cols: [1]
-        },
-        {
-          _id: 3,
-          action: 'update',
-          timestamp: Date.now() + 2 * 1000,
-          cols: [2]
+          _id: 12,
+          text: 'I like XML better',
+          author: 9
         }
       ]
+
+      return {
+        data
+      }
+    })
+
+    fetchPeople = _wrap(options => {
+      const data = [{
+        _id: 9,
+        name: {
+          first: 'Dan',
+          last: 'Gebhardt',
+        },
+        social: {
+          twitter: 'dgeb'
+        }
+      }]
 
       return {
         data
@@ -133,7 +144,7 @@ describe('Instance Methods', () => {
 
   // describe('#connect', () => {
   //   it('should assign type key to internals', () => {
-  //     jsonapi.connect(resourceName, fetchCollection)
+  //     jsonapi.connect(resourceName, fetchArticles)
   //
   //     assert.ok(resourceName in jsonapi._connected)
   //   })
@@ -141,60 +152,80 @@ describe('Instance Methods', () => {
 
   describe('#fetchData', () => {
     it('should return internal data representation', async () => {
-      jsonapi.connect('collections', fetchCollection)
-      jsonapi.connect('ops', fetchOps)
+      jsonapi.connect('articles', fetchArticles)
+      jsonapi.connect('comments', fetchComments)
+      jsonapi.connect('people', fetchPeople)
 
       const {
         data,
         included
-      } = await jsonapi.fetch('read', 'collections', {
-        collections: {
+      } = await jsonapi.fetch('read', 'articles', {
+        'articles': {
           alias: {
-            'id': '_id'
+            'id': '_id',
+            'title': 'name'
           },
           defaults: {
-            type: 'collections'
+            type: 'articles'
           },
-          filter: {
-            'id': [
-              '1'
-            ]
-          },
+          // filter: {
+          //   'id': 1
+          // },
           fields: [
-            'name'
+            'title'
           ],
-          sort: [
-            ['name', 1]
-          ],
+          sort: '-title',
           page: {
             strategy: 'offset',
             limit: 10
           },
-          include: {
-            'ops': {
-              from: 'ops',
+          include: [
+            'comments',
+            'people'
+          ],
+          relationships: {
+            'comments': {
+              from: 'comments',
+              alias: {
+                'id': ''
+              }
+            },
+            'people': {
+              from: 'author',
               alias: {
                 'id': ''
               }
             }
           }
         },
-        ops: {
+        'comments': {
           alias: {
-            'id': '_id'
+            'id': '_id',
+            'body': 'text'
           },
           defaults: {
-            type: 'ops'
+            type: 'comments'
+          },
+          relationships: {
+            'people': {
+              from: 'author',
+              alias: {
+                'id': ''
+              }
+            }
+          }
+        },
+        'people': {
+          alias: {
+            'id': '_id',
+            'first-name': 'name.first',
+            'last-name': 'name.last',
+            'twitter': 'social.twitter'
+          },
+          defaults: {
+            type: 'people'
           }
         }
-      })
-
-      console.dir(data, {
-        depth: Infinity
-      })
-
-      console.dir(included, {
-        depth: Infinity
       })
     })
   })

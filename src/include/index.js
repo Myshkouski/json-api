@@ -1,8 +1,6 @@
 import get from 'lodash/get'
 
 import alias from '../transform/pre/alias'
-import preFetch from '../prefetch'
-// import PromiseTree from '../promiseTree'
 
 import {
   IndexedCache,
@@ -10,14 +8,14 @@ import {
 } from '../cache'
 
 import {
-  cache,
-  extract
-} from '../helpers/cache'
-import {
   forSingleOrMany
 } from '../helpers/wrapFor'
 
-const forEach = forSingleOrMany((data, f) => f(data))
+const forEachResourceIdentifier = forSingleOrMany((data, f) => {
+  if(data && !(data.id === undefined || data.id === null)) {
+    f(data)
+  }
+})
 
 const transformIds = forSingleOrMany((data, options) => {
   if('alias' in options) {
@@ -37,59 +35,25 @@ const extractIncluded = (data, options) => {
   return data
 }
 
-const assignIncluded = forSingleOrMany((data, options, cache) => {
+const assignIncluded = forSingleOrMany((data, includeOptions, relationshipsOptions, cache) => {
   if (data) {
     Object.defineProperty(data, '_include', {
-      // enumerable: true,
+      enumerable: true,
       value: new LinkedIndexedCache(cache)
     })
 
-    for (let type in options) {
-      let typeOptions = options[type]
+    for (let type of includeOptions) {
+      const typeOptions = relationshipsOptions[type]
 
       let resourceIds = extractIncluded(data._source, typeOptions)
 
-      forEach(resourceIds, resourceId => {
+      forEachResourceIdentifier(resourceIds, resourceId => {
         data._include.link([type, resourceId.id])
       })
     }
   }
 })
 
-export default async function include(data, includedCache, queries, action, type, options, ...args) {
-  const typeOptions = options[type]
-
-  assignIncluded(data, typeOptions.include, includedCache)
-
-  function createIncludeDict(include) {
-    return Object.keys(include).reduce((dict, path) => {
-      const type = path.split('.').pop()
-
-      dict[path] = async () => {
-        const typeOptions = Object.assign({}, options[type], {
-          filter: {
-            id: Object.keys(includedCache.get(type))
-          }
-        })
-
-        const {
-          data,
-          included
-        } = await preFetch(queries[type][action], typeOptions, ...args)
-
-        cache(data, includedCache)
-        cache(included, includedCache)
-
-        return includedCache
-      }
-
-      return dict
-    }, {})
-  }
-
-  const dict = createIncludeDict(typeOptions.include)
-
-  const includePromiseTree = new PromiseTree(dict)
-
-  await includePromiseTree.run()
+export default async function include(data, includeOptions, relationshipsOptions, linksCache) {
+  assignIncluded(data, includeOptions, relationshipsOptions, linksCache)
 }
