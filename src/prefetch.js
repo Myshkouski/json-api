@@ -5,15 +5,11 @@ import { forSingleOrMany } from './helpers/wrapFor'
 const _wrappedPreTransform = forSingleOrMany(preTransform)
 
 export default async function prefetch(query, options, ...args) {
-  let {
-    data,
-    included
-  } = await query(options, ...args)
+  let res = await query(options, ...args)
 
-  data = _wrappedPreTransform(data, options)
+  res = Object.assign({}, {
+    data: _wrappedPreTransform(res.data, options)
+  })
 
-  return {
-    data,
-    included
-  }
+  return res
 }

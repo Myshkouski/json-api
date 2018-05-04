@@ -3,24 +3,28 @@ import set from 'lodash/setWith'
 
 export class IndexedCache {
   constructor() {
-    Object.defineProperty(this, '_cache', {
+    Object.defineProperty(this, '_c', {
       enumerable: true,
       value: {}
     })
   }
 
+  entries() {
+    return Object.entries(this._c)
+  }
+
   keys() {
-    return Object.keys(this._cache)
+    return Object.keys(this._c)
   }
 
   set(path, value) {
-    set(this._cache, path, value, Object)
+    set(this._c, path, value, Object)
 
     return this
   }
 
   get(path) {
-    return get(this._cache, path)
+    return get(this._c, path)
   }
 }
 
@@ -61,7 +65,7 @@ export class LinkedIndexedCache extends IndexedCache {
         IndexedCache.prototype.set.call(this, base, target)
       }
     } else {
-      target = this._cache
+      target = this._c
     }
 
     const prop = path[path.length - 1]

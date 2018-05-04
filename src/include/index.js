@@ -38,7 +38,7 @@ const extractIncluded = (data, options) => {
 const assignIncluded = forSingleOrMany((data, includeOptions, relationshipsOptions, cache) => {
   if (data) {
     Object.defineProperty(data, '_include', {
-      enumerable: true,
+      // enumerable: true,
       value: new LinkedIndexedCache(cache)
     })
 

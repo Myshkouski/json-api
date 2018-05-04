@@ -155,6 +155,7 @@ describe('Instance Methods', () => {
       jsonapi.connect('articles', fetchArticles)
       jsonapi.connect('comments', fetchComments)
       jsonapi.connect('people', fetchPeople)
+      jsonapi.connect('author', fetchPeople)
 
       const {
         data,
@@ -181,20 +182,22 @@ describe('Instance Methods', () => {
           },
           include: [
             'comments',
-            'people'
+            'author'
           ],
           relationships: {
             'comments': {
               from: 'comments',
               alias: {
                 'id': ''
-              }
+              },
+              links: id => ({ self: `/articles/${ id }/relationships/comments` })
             },
-            'people': {
+            'author': {
               from: 'author',
               alias: {
                 'id': ''
-              }
+              },
+              links: id => ({ self: `/articles/${ id }/relationships/comments` })
             }
           }
         },
@@ -207,7 +210,7 @@ describe('Instance Methods', () => {
             type: 'comments'
           },
           relationships: {
-            'people': {
+            'author': {
               from: 'author',
               alias: {
                 'id': ''
@@ -215,7 +218,7 @@ describe('Instance Methods', () => {
             }
           }
         },
-        'people': {
+        'author': {
           alias: {
             'id': '_id',
             'first-name': 'name.first',
@@ -223,7 +226,7 @@ describe('Instance Methods', () => {
             'twitter': 'social.twitter'
           },
           defaults: {
-            type: 'people'
+            type: 'author'
           }
         }
       })
