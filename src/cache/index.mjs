@@ -1,25 +1,18 @@
-import get from 'lodash/get'
-import set from 'lodash/setWith'
-import unset from 'lodash/unset'
-
 export class IndexedCache {
   constructor() {
-    this.empty()
-
-    this.serialize = key => key.toString()
-    this.deserialize = key => key
+    this._c = {}
   }
 
-  entries() {
-    return Object.entries(this._c)
+  serialize(key) {
+    return key
   }
 
-  keys() {
-    return Object.keys(this._c)
+  deserialize(key) {
+    return key
   }
 
-  values() {
-    return Object.values(this._c)
+  get length() {
+    return this.keys().length
   }
 
   set(path, value) {
@@ -38,14 +31,18 @@ export class IndexedCache {
 
   remove(path) {
     const key = this.serialize(path)
+    const value = this._c[key]
     delete this._c[key]
-    return this
-  }
-
-  empty() {
-    this._c = {}
+    return value
   }
 }
+
+;
+['entries', 'keys', 'values'].forEach(prop => {
+  IndexedCache.prototype[prop] = function() {
+    return Object[prop].call(Object, this._c)
+  }
+})
 
 // export class LinkedIndexedCache extends IndexedCache {
 //   constructor(indexedCache) {
