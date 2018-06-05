@@ -1,124 +1,49 @@
-function once(f) {
-  let called = false
+import Node from '@alexeimyshkouski/node-tree'
+import once from 'lodash/once'
 
-  return function() {
-    if (!called) {
-      called = true
-      return f.apply(this, arguments)
-    }
-  }
-}
-
-function _createPromiseTree(paths) {
-  if (typeof paths !== 'object') {
-    throw new TypeError(`First argument should be object`)
-  }
-
-  const tree = Object.entries(paths)
-    .reduce((tree, [path, value]) => {
-      const _path = path
-      if (typeof path === 'string') {
-        path = path.split('.')
-      }
-
-      const length = path.length
-
-      const targetNode = path.reduce((node, key) => {
-        if (!('resolve' in node)) {
-          node.resolve = null
-        }
-
-        if (!node.then) {
-          node.then = {}
-        }
-
-        if (!(key in node.then)) {
-          node.then[key] = {}
-        }
-
-        return node.then[key]
-      }, tree)
-
-      Object.defineProperties(targetNode, {
-        path: {
-          value: path
-        },
-        resolved: {
-          get() {
-            return tree._resolvedTree[_path]
-          },
-          set(value) {
-            tree._resolvedTree[_path] = value
-          }
-        }
-      })
-      targetNode.resolve = value
-      if (!targetNode.then) {
-        targetNode.then = null
-      }
-
-      return tree
-    }, {})
-
-  Object.defineProperty(tree, '_resolvedTree', {
-    value: {}
+function _resolveChildren(data, node, rootNode) {
+  node.forEach(child => {
+    child.data.path = [...node.path, child.key]
   })
-
-  return tree
+  return Promise.all(node.children().map(node => _resolve(data, node, rootNode)))
 }
 
-function _resolvePromiseTree(result, node, rootNode = node) {
+function _resolve(data, node, rootNode = node) {
   if (rootNode.rejected) {
-    return rootNode.rejected
+    throw rootNode.rejected
   }
 
-  return Promise.resolve(result)
-    .then(result => {
-      const resolveSubnodes = once(() => {
-        if (node.then) {
-          return Promise.all(
-            Object.keys(node.then)
-            .map(key => {
-              return _resolvePromiseTree(result, node.then[key], rootNode)
-            })
-          ).then(() => result)
-        }
+  if (node === rootNode) {
+    return _resolveChildren(data, node, rootNode).then(() => rootNode.value())
+  }
 
-        return result
-      })
-
-      if (node.resolve) {
-        return node.resolve(result, resolveSubnodes)
-      } else {
-        return resolveSubnodes()
-      }
+  return Promise.resolve(data)
+    .then(data => {
+      const next = once(data => _resolveChildren(data, node, rootNode))
+      return node.value().call(null, data, next)
     })
-    .then(result => {
-      node.resolved = result
-      return rootNode._resolvedTree
+    .then(data => {
+      node.resolved = data
+      rootNode.value().push([node.path, data])
+      return data
     })
     .catch(error => {
-      node.rejected = error
+      node.rejected = rootNode.rejected = error
       throw error
     })
 }
 
-export default function PromiseTree(paths, result) {
-  const tree = _createPromiseTree(paths)
+class PromiseTree extends Node {
+  constructor(options = {}) {
+    super(options)
 
-  let rejected, set = false
+    this.set([])
+    this.path = []
+  }
 
-  Object.defineProperty(tree, 'rejected', {
-    get() {
-      return rejected
-    },
-    set(value) {
-      if (!set) {
-        set = true
-        rejected = value
-      }
-    }
-  })
-
-  return _resolvePromiseTree(result, tree)
+  resolve(data) {
+    return _resolve(data, this)
+  }
 }
+
+export default PromiseTree

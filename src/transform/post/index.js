@@ -1,17 +1,16 @@
-import {
-  forMany
-} from '../../helpers/wrapFor'
-
-// import paginate from './paginate'
 import sort from './sort'
 
-const posttransform = (data, typeOptions) => {
-  if('sort' in typeOptions) {
-    data = sort(data, typeOptions.sort)
+const posttransform = (data, options) => {
+  if(!options) {
+    return data
   }
 
-  // if('page' in typeOptions) {
-  //   data = paginate(data, typeOptions.page)
+  if('sort' in options) {
+    data = sort(data, options.sort)
+  }
+
+  // if('page' in options) {
+  //   data = paginate(data, options.page)
   // }
 
   return data

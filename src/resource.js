@@ -1,18 +1,47 @@
 import set from 'lodash/set'
 import get from 'lodash/get'
 import pick from 'lodash/pick'
+import isEmpty from 'lodash/isEmpty'
 
-import pretransform from './transform/pre/extractMembers'
+import {
+  RESOURCE_PROPS
+} from './transform/resourceProps'
+import pretransform from './transform/pre'
+import fields from './transform/fields'
+import TypeStore from './typeStore'
 
-import ResourceCollection from './collection'
-
-class ResourceObject {
+class ResourceIdentifier {
   constructor(source, options) {
-    this._r = pretransform(source, options)
-    this._i = include(source, options)
+    Object.defineProperties(this, {
+      source: {
+        value: source
+      },
+      _r: {
+        value: pretransform(source, options)
+      }
+    })
   }
 
-  // common instance methods
+  get id() {
+    return this._r && this._r.id
+  }
+
+  get type() {
+    return this._r && this._r.type
+  }
+
+  toJSON(options) {
+    return pick(this._r, ['type', 'id', 'meta'])
+  }
+}
+
+class ResourceObject extends ResourceIdentifier {
+  constructor(source, options) {
+    super(source, options)
+
+    this._a = fields(this._r, options.fields)
+    this._i = include(this.source, options.relationships)
+  }
 
   set(...args) {
     return set(this._r, ...args)
@@ -22,48 +51,75 @@ class ResourceObject {
     return get(this._r, ...args)
   }
 
-  // internal representation methods
+  toJSON(options) {
+    const resource = pick(this._r, RESOURCE_PROPS)
 
-  get source() {
-    return this._s
-  }
+    if (this._i) {
+      resource.relationships = Object.entries(this._i).reduce((relationships, entry) => {
+        const [type, store] = entry
 
-  get relationships() {
-    return this._i
-  }
+        const relationship = store.toJSON(options && options[type])
 
-  // jsonapi related
+        relationships[type] = isEmpty(relationship) ? null : relationship
 
-  get identifier() {
-    return pick(this._r, ['id', 'type', 'meta'])
-  }
+        return relationships
+      }, {})
+    }
 
-  get id() {
-    return this._r.id
-  }
+    if (this._a) {
+      resource.attributes = this._a
+    }
 
-  get type() {
-    return this._r.type
+    return resource
   }
 }
 
 function include(source, options) {
-  if('relationships' in options && (typeof options.relationships === 'object')) {
-    const relationshipsOptions = options.relationships
-    const collection = new ResourceCollection()
+  if (typeof options === 'object') {
+    const included = {}
 
-    for (let type of relationshipsOptions) {
-      const relationshipTypeOptions = relationshipsOptions[type]
-
-      const resource = new ResourceObject(source, relationshipTypeOptions)
-
-      collection.add(resource)
+    for (let type in options) {
+      included[type] = new TypeStore(ResourceIdentifier, source, options[type])
     }
 
-    return collection
+    return included
   }
 
   return null
 }
 
-export default ResourceObject
+// const source = {
+//   '_id': 1,
+//   'author': 1
+// }
+//
+// const options = {
+//   alias: {
+//     'id': '_id',
+//     'meta.source': ''
+//   },
+//   defaults: {
+//     'type': 'articles'
+//   },
+//   relationships: {
+//     'author': {
+//       from: 'author',
+//       alias: {
+//         'id': ''
+//       },
+//       defaults: {
+//         'type': 'people'
+//       }
+//     }
+//   }
+// }
+//
+// const i = new ResourceObject(source, options)
+// console.dir(i.toJSON(), {
+//   depth: Infinity
+// })
+
+export {
+  ResourceObject,
+  ResourceIdentifier
+}

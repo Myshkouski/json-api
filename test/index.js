@@ -68,31 +68,36 @@ describe('Instance Methods', () => {
 
   beforeEach(() => {
     jsonapi = new JsonApi()
-    const _wrap = f => function(options) {
-      let {
-        data,
-        included
-      } = f.apply(this, arguments)
+    const _wrap = f => async function(options) {
+      return new Promise(resolve => {
+        setTimeout(() => {
+          let {
+            data,
+            included
+          } = f.apply(this, arguments)
 
-      if (Array.isArray(data) && ('filter' in options) && ('id' in options.filter)) {
-        if (Array.isArray(options.filter.id)) {
-          data = data.filter(resource => options.filter.id.some(id => id == resource._id))
-        } else {
-          data = data.find(resource => options.filter.id == resource._id)
-        }
-      }
+          if (Array.isArray(data) && ('filter' in options) && ('id' in options.filter)) {
+            if (Array.isArray(options.filter.id)) {
+              data = data.filter(resource => options.filter.id.some(id => id == resource._id))
+            } else {
+              data = data.find(resource => options.filter.id == resource._id)
+            }
+          }
 
-      return {
-        data,
-        included
-      }
+          resolve({
+            data,
+            included
+          })
+        }, 50)
+      })
     }
 
     fetchArticles = _wrap(options => {
       const data = [{
         _id: 2,
         name: 'Rails is Omakase',
-        comments: null
+        comments: null,
+        author: 9
       }, {
         _id: 1,
         name: 'JSON API paints my bikeshed!',
@@ -106,8 +111,7 @@ describe('Instance Methods', () => {
     })
 
     fetchComments = _wrap(options => {
-      const data = [
-        {
+      const data = [{
           _id: 5,
           text: 'First!',
           author: 2
@@ -169,9 +173,9 @@ describe('Instance Methods', () => {
           defaults: {
             type: 'articles'
           },
-          // filter: {
-          //   'id': 1
-          // },
+          filter: {
+            'id': 1
+          },
           fields: [
             'title'
           ],
@@ -181,7 +185,8 @@ describe('Instance Methods', () => {
             limit: 10
           },
           include: [
-            'comments',
+            // 'comments',
+            'comments.author',
             'author'
           ],
           relationships: {
@@ -190,14 +195,24 @@ describe('Instance Methods', () => {
               alias: {
                 'id': ''
               },
-              links: id => ({ self: `/articles/${ id }/relationships/comments` })
+              defaults: {
+                'type': 'comments'
+              },
+              links: id => ({
+                self: `/articles/${ id }/relationships/comments`
+              })
             },
             'author': {
               from: 'author',
               alias: {
                 'id': ''
               },
-              links: id => ({ self: `/articles/${ id }/relationships/comments` })
+              defaults: {
+                'type': 'people'
+              },
+              links: id => ({
+                self: `/articles/${ id }/relationships/comments`
+              })
             }
           }
         },
@@ -214,9 +229,15 @@ describe('Instance Methods', () => {
               from: 'author',
               alias: {
                 'id': ''
+              },
+              defaults: {
+                'type': 'people'
               }
             }
-          }
+          },
+          links: () => ({
+            all: `/comments`
+          })
         },
         'author': {
           alias: {

@@ -25,7 +25,7 @@ function assignAlias(data, alias, fullPath) {
         set(obj, key, aliased)
       }
 
-      if(_omitProps.length) {
+      if (_omitProps.length) {
         obj = omit(obj, _omitProps)
       }
     }
@@ -34,4 +34,6 @@ function assignAlias(data, alias, fullPath) {
   }
 }
 
-export default (data, options) => assignAlias(data, options, '')
+export default function(data, options) {
+  return assignAlias(data, options, '')
+}

@@ -1,47 +1,61 @@
 import merge from 'lodash/merge'
+import isEmpty from 'lodash/isEmpty'
+import isNil from 'lodash/isNil'
 
 import {
-  IndexedCache,
-  LinkedIndexedCache
-} from './cache'
-import prefetch from './prefetch'
-import include from './include'
-import posttransform from './transform/post'
+  ResourceObject,
+  ResourceIdentifier
+} from './resource'
+import ResourceCollection from './collection'
+
 import PromiseTree from './promiseTree'
+import TypeStore from './typeStore'
 
-import {
-  cache,
-  extract
-} from './helpers/cache'
+function createQueryIds(type, data) {
+  if (data._s instanceof ResourceIdentifier) {
+    const resource = data._s
+
+    if (resource._i && resource._i[type]) {
+      return resource._i[type]._s.id
+    }
+  } else if (data._s instanceof ResourceCollection) {
+    let ids = new Set()
+
+    const values = data._s.values()
+
+    values.forEach(resource => {
+      if (resource._i && resource._i[type]) {
+        const _ids = resource._i[type]._s.id
+
+        if (_ids) {
+          if (Array.isArray(_ids)) {
+            _ids.forEach(id => ids.add(id))
+          } else {
+            ids.add(_ids)
+          }
+        }
+      }
+    })
+
+    ids = Array.from(ids.values())
+
+    if (isEmpty(ids)) {
+      return null
+    }
+
+    return ids
+  }
+}
 
 export default async function fetch(queries, action, type, options, ...args) {
-  const resourceCache = new IndexedCache()
+  const typeStore = new TypeStore(ResourceObject, [], {})
 
   async function _fetch(type, typeOptions) {
-    const dataCache = new LinkedIndexedCache(resourceCache)
+    const query = queries[type][action]
+    const prefetched = await query(typeOptions)
 
-    const prefetched = await prefetch(queries[type][action], typeOptions, ...args)
-
-    // add primary resources to indexed resource cache
-    const result = {}
-    cache(prefetched.data, dataCache)
-    result.dataCache = dataCache
-
-    if ('include' in typeOptions) {
-      // assign primary data links to included resources
-
-      const linkageCache = new LinkedIndexedCache(resourceCache)
-      include(prefetched.data, typeOptions.include, typeOptions.relationships, linkageCache)
-
-      result.linkageCache = linkageCache
-
-      if ('included' in prefetched) {
-        // add included resources to indexed resource cache
-
-        const includedCache = new LinkedIndexedCache(resourceCache)
-        cache(prefetched.included, includedCache)
-        result.includedCache = includedCache
-      }
+    const result = {
+      data: new TypeStore(ResourceObject, prefetched.data, typeOptions)
     }
 
     return result
@@ -49,128 +63,64 @@ export default async function fetch(queries, action, type, options, ...args) {
 
   const typeOptions = options[type]
 
-  async function _primaryFetch(type, typeOptions) {
-    const prefetched = await _fetch(type, typeOptions)
+  const tree = new PromiseTree()
 
-    const result = {}
-    cache(prefetched.data, dataCache)
-    result.dataCache = dataCache
-
-    if ('include' in typeOptions) {
-      // assign primary data links to included resources
-
-      const linkageCache = new LinkedIndexedCache(resourceCache)
-      include(prefetched.data, typeOptions.include, typeOptions.relationships, linkageCache)
-
-      result.linkageCache = linkageCache
-
-      if ('included' in prefetched) {
-        // add included resources to indexed resource cache
-
-        const includedCache = new LinkedIndexedCache(resourceCache)
-        cache(prefetched.included, includedCache)
-        result.includedCache = includedCache
-      }
-    }
-
-    return result
-  }
-
-  async function _includedFetch(type, typeOptions) {
+  const includedTree = tree.set([type], async (opts, next) => {
     const result = await _fetch(type, typeOptions)
 
-    if ('included' in prefetched) {
-      // add included resources to indexed resource cache
-
-      const includedCache = new LinkedIndexedCache(resourceCache)
-      cache(prefetched.included, includedCache)
-      result.includedCache = includedCache
+    if ('include' in typeOptions) {
+      if (!('included' in result)) {
+        await next(result.data)
+      }
     }
 
     return result
-  }
-
-  const flow = [type, ...(typeOptions.include || []).map(path => type + '.' + path)].reduce((flow, path) => {
-    const type = path.split('.').pop()
-    let typeOptions = options[type]
-
-    flow[path] = async (result = {}, fetchIncluded) => {
-      console.log(type, result)
-      if (result.includedCache) {
-        return result
-      }
-
-      if (result.linkageCache) {
-        const cachedType = result.linkageCache.get(type)
-
-        if(!cachedType) {
-          return result
-        }
-
-        const ids = Object.keys(cachedType)
-        typeOptions = Object.assign({}, typeOptions)
-        typeOptions.filter = merge({}, typeOptions.filter, {
-          id: ids
-        })
-      }
-
-      result = await _fetch(type, typeOptions)
-
-      await fetchIncluded(result)
-
-      return result
-    }
-
-    return flow
-  }, {})
-
-  const entries = await new PromiseTree(flow)
-
-  const {
-    dataCache,
-    includedCache,
-    linkageCache
-  } = entries[type]
-
-  let data = extract(dataCache)
-  let included = extract(linkageCache)
-  data = posttransform(data, typeOptions)
-
-  data = data.map(data => {
-    if(data._include) {
-      const relationships = {}
-      const entries = data._include.entries()
-      if(entries.length) {
-        entries.map(([type, cachedTypeIds]) => {
-          let data = Object.values(cachedTypeIds)
-
-          data = posttransform(data, typeOptions).filter(data => data)
-
-          relationships[type] = data.map(data => {
-            return {
-              id: data.id,
-              type: data.type
-            }
-          })
-        })
-
-        data.relationships = relationships
-      }
-    }
-
-    return data
   })
 
-  console.dir(data, {
+  typeOptions.include.map(path => {
+    return includedTree.parse(path)
+  }).forEach(path => {
+    path.forEach((type, index, path) => {
+      return includedTree.set(path.slice(0, index + 1), async (data, next) => {
+        if (data) {
+          const ids = createQueryIds(type, data)
+
+          if (isNil(ids) || isEmpty(ids)) {
+            return null
+          }
+
+          let typeOptions = Object.assign({}, options[type])
+
+          typeOptions.filter = merge({}, typeOptions.filter, {
+            id: ids
+          })
+
+          const result = await _fetch(type, typeOptions)
+
+          if (!('included' in result)) {
+            await next(result.data)
+          }
+
+          return result
+        }
+      })
+    })
+  })
+
+  const r = await tree.resolve(null)
+
+  console.dir(r.map(([path, r]) => {
+    if (r) {
+      const {
+        data
+      } = r
+      return [path, data ? data.toJSON() : data]
+    } else {
+      return [path, r]
+    }
+  }), {
     depth: Infinity
   })
 
-  // console.dir(included, {
-  //   depth: Infinity
-  // })
-
-  return {
-    data,
-    included
-  }
+  return r
 }

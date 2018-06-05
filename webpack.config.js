@@ -11,29 +11,22 @@ const config = {
   externals: [
     require('webpack-node-externals')()
   ],
-  entry: {
-    index: path.resolve(__src, 'index.js')
-  },
   output: {
     path: __dist,
-    filename: '[name].js',
     libraryTarget: 'commonjs2'
   },
   resolve: {
-    extensions: ['.mjs', '.js', '.json', '.yaml']
+    extensions: ['.js', '.json', '.yaml']
   },
   module: {
-    rules: [{
-        test: /\.ya?ml$/,
-        loader: 'yml-loader',
-        options: {
-          multiDocument: true
-        }
-      },
-      {
-        test: /\.json$/,
-        loader: 'json-loader'
-      },
+    rules: [
+      // {
+      //   test: /\.ya?ml$/,
+      //   loader: 'yml-loader',
+      //   options: {
+      //     multiDocument: true
+      //   }
+      // },
       {
         test: /\.js$/,
         exclude: /node_modules/,

@@ -1,40 +1,49 @@
 import merge from 'lodash/merge'
 import defaults from 'lodash/defaults'
 import pick from 'lodash/pick'
-import get from 'lodash/get'
+import isObject from 'lodash/isObject'
+import isNil from 'lodash/isNil'
 
 import assignAlias from './alias'
-import rootMembers from './rootMembers'
-import defineSourceProp from './defineSourceProp'
+import {
+  RESOURCE_IDENTIFIER_ESSENTIAL_PROPS
+} from '../resourceProps'
 
-const preTransform = (data, options) => {
-  let source = data
-
-  if('from' in options) {
-    data = get(data, options.from)
+function pretransform(data, options) {
+  if (isNil(data)) {
+    return data
   }
 
-  if ('alias' in options) {
-    data = assignAlias(data, options.alias)
+  if (isObject(options)) {
+    if ('alias' in options) {
+      data = assignAlias(data, options.alias)
+    }
+
+    if ('defaults' in options) {
+      data = defaults({}, data, options.defaults)
+    }
+
+    if ('merge' in options) {
+      data = merge({}, data, options.merge)
+    }
   }
 
-  data = rootMembers(data)
+  if (isObject(data)) {
+    data = RESOURCE_IDENTIFIER_ESSENTIAL_PROPS.reduce((data, key) => {
+      if (isNil(data[key])) {
+        const error = new TypeError(`Cannot transform '${ key }' prop to string`)
+        error.data = data
+        error.key = key
+        throw error
+      }
 
-  defineSourceProp(data, source)
+      data[key] += ''
 
-  if ('defaults' in options) {
-    defaults(data, options.defaults)
-  }
-
-  if ('merge' in options) {
-    merge(data, options.merge)
-  }
-
-  if ('fields' in options) {
-    data.attributes = pick(data.attributes, options.fields)
+      return data
+    }, Object.assign({}, data))
   }
 
   return data
 }
 
-export default preTransform
+export default pretransform

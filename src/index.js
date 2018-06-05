@@ -1,9 +1,9 @@
 import get from 'lodash/get'
 import set from 'lodash/set'
 
-import preFetch from './prefetch'
-import include from './include'
 import fetch from './fetch'
+
+import * as Resource from './resource'
 
 class JsonApi {
   constructor(options = {}) {
