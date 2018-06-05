@@ -14,7 +14,9 @@ function pretransform(data, options) {
     return data
   }
 
-  if (isObject(options)) {
+  const isOptionsPassed = isObject(options)
+
+  if (isOptionsPassed) {
     if ('alias' in options) {
       data = assignAlias(data, options.alias)
     }
@@ -41,6 +43,12 @@ function pretransform(data, options) {
 
       return data
     }, Object.assign({}, data))
+  }
+
+  if (isOptionsPassed) {
+    if ('links' in options) {
+      data.links = options.links(data.type, data.id)
+    }
   }
 
   return data

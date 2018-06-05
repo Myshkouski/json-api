@@ -198,7 +198,7 @@ describe('Instance Methods', () => {
               defaults: {
                 'type': 'comments'
               },
-              links: id => ({
+              links: (type, id) => ({
                 self: `/articles/${ id }/relationships/comments`
               })
             },
@@ -210,7 +210,7 @@ describe('Instance Methods', () => {
               defaults: {
                 'type': 'people'
               },
-              links: id => ({
+              links: (type, id) => ({
                 self: `/articles/${ id }/relationships/comments`
               })
             }

@@ -809,7 +809,9 @@ class ResourceObject extends ResourceIdentifier {
 
         const relationship = store.toJSON(options && options[type]);
 
-        relationships[type] = (0, _isEmpty2.default)(relationship) ? null : relationship;
+        relationships[type] = {
+          data: (0, _isEmpty2.default)(relationship) ? null : relationship
+        };
 
         return relationships;
       }, {});
@@ -1160,7 +1162,9 @@ function pretransform(data, options) {
     return data;
   }
 
-  if ((0, _isObject2.default)(options)) {
+  const isOptionsPassed = (0, _isObject2.default)(options);
+
+  if (isOptionsPassed) {
     if ('alias' in options) {
       data = (0, _alias2.default)(data, options.alias);
     }
@@ -1187,6 +1191,12 @@ function pretransform(data, options) {
 
       return data;
     }, (0, _assign2.default)({}, data));
+  }
+
+  if (isOptionsPassed) {
+    if ('links' in options) {
+      data.links = options.links(data.type, data.id);
+    }
   }
 
   return data;

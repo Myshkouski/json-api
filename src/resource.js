@@ -60,7 +60,9 @@ class ResourceObject extends ResourceIdentifier {
 
         const relationship = store.toJSON(options && options[type])
 
-        relationships[type] = isEmpty(relationship) ? null : relationship
+        relationships[type] = {
+          data: isEmpty(relationship) ? null : relationship
+        }
 
         return relationships
       }, {})
