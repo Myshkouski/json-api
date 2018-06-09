@@ -174,7 +174,7 @@ describe('Instance Methods', () => {
             type: 'articles'
           },
           filter: {
-            'id': 1
+            'id': [1]
           },
           fields: [
             'title'

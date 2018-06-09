@@ -11,14 +11,16 @@ import ResourceCollection from './collection'
 import PromiseTree from './promiseTree'
 import TypeStore from './typeStore'
 
+import createBody from './createBody'
+
 function createQueryIds(type, data) {
-  if (data._s instanceof ResourceIdentifier) {
+  if (data.single) {
     const resource = data._s
 
     if (resource._i && resource._i[type]) {
       return resource._i[type]._s.id
     }
-  } else if (data._s instanceof ResourceCollection) {
+  } else {
     let ids = new Set()
 
     const values = data._s.values()
@@ -77,9 +79,11 @@ export default async function fetch(queries, action, type, options, ...args) {
     return result
   })
 
-  typeOptions.include.map(path => {
+  const includeTypeOptions = typeOptions.include.map(path => {
     return includedTree.parse(path)
-  }).forEach(path => {
+  })
+
+  includeTypeOptions.forEach(path => {
     path.forEach((type, index, path) => {
       return includedTree.set(path.slice(0, index + 1), async (data, next) => {
         if (data) {
@@ -107,20 +111,9 @@ export default async function fetch(queries, action, type, options, ...args) {
     })
   })
 
-  const r = await tree.resolve(null)
+  const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
 
-  console.dir(r.map(([path, r]) => {
-    if (r) {
-      const {
-        data
-      } = r
-      return [path, data ? data.toJSON() : data]
-    } else {
-      return [path, r]
-    }
-  }), {
-    depth: Infinity
-  })
+  console.log(body)
 
-  return r
+  return body
 }

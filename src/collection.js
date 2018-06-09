@@ -47,24 +47,12 @@ class ResourceCollection extends IndexedCache {
     return this.set({ type, id }, resource)
   }
 
+
+
   toJSON(options) {
     const toJSONed = this.values().map(resource => resource.toJSON(options))
     return posttransform(toJSONed)
   }
 }
-
-// ;
-// ['map', 'filter'].forEach(prop => {
-//   ResourceCollection.prototype[prop] = function(iteratee) {
-//     this._c = this.entries()[prop](function _iteratee(entry, index, entries) {
-//       return iteratee.call(this, entry[1], index, entries)
-//     }).reduce((_c, [key, value]) => {
-//       _c[key] = value
-//       return _c
-//     }, {})
-//
-//     return this
-//   }
-// })
 
 export default ResourceCollection

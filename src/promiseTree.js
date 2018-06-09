@@ -1,5 +1,9 @@
 import Node from '@alexeimyshkouski/node-tree'
 import once from 'lodash/once'
+import Avl from 'avl'
+
+import comparePaths from './helpers/comparePaths'
+import parsePath from './helpers/parsePath'
 
 function _resolveChildren(data, node, rootNode) {
   node.forEach(child => {
@@ -24,7 +28,7 @@ function _resolve(data, node, rootNode = node) {
     })
     .then(data => {
       node.resolved = data
-      rootNode.value().push([node.path, data])
+      rootNode.value().insert(node.path, data)
       return data
     })
     .catch(error => {
@@ -37,8 +41,8 @@ class PromiseTree extends Node {
   constructor(options = {}) {
     super(options)
 
-    this.set([])
-    this.path = []
+    this.set(new Avl(comparePaths, true))
+    this.path = parsePath([])
   }
 
   resolve(data) {
