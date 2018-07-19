@@ -19,6 +19,7 @@
     "ajv-errors": "^1.0.0",
     "async": "^2.6.0",
     "avl": "^1.4.3",
+    "commander": "^2.15.1",
     "json8-patch": "^0.4.1",
     "lodash": "^4.17.10"
   },
