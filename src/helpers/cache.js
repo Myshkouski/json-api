@@ -2,16 +2,18 @@ import {
   forSingleOrMany
 } from './wrapFor'
 
-import { IndexedCache } from '../cache'
+import {
+  IndexedCache
+} from '../cache'
 
 export const cache = forSingleOrMany((data, indexedCache) => {
-  if(data) {
+  if (data) {
     indexedCache.set([data.type, data.id], data)
   }
 })
 
 export const extract = indexedCache => {
-  if(!(indexedCache instanceof IndexedCache)) {
+  if (!(indexedCache instanceof IndexedCache)) {
     return null
   }
 

@@ -7,16 +7,10 @@ import isNil from 'lodash/isNil'
 import assignAlias from './alias'
 import {
   RESOURCE_IDENTIFIER_ESSENTIAL_PROPS
-} from '../resourceProps'
+} from '../../resource/props'
 
-function pretransform(data, options) {
-  if (isNil(data)) {
-    return data
-  }
-
-  const isOptionsPassed = isObject(options)
-
-  if (isOptionsPassed) {
+function transform(data, options) {
+  if (isObject(options)) {
     if ('alias' in options) {
       data = assignAlias(data, options.alias)
     }
@@ -34,8 +28,11 @@ function pretransform(data, options) {
     data = RESOURCE_IDENTIFIER_ESSENTIAL_PROPS.reduce((data, key) => {
       if (isNil(data[key])) {
         const error = new TypeError(`Cannot transform '${ key }' prop to string`)
-        error.data = data
-        error.key = key
+        Object.assign(error, {
+          key,
+          data
+        })
+
         throw error
       }
 
@@ -45,13 +42,7 @@ function pretransform(data, options) {
     }, Object.assign({}, data))
   }
 
-  if (isOptionsPassed) {
-    if ('links' in options) {
-      data.links = options.links(data.type, data.id)
-    }
-  }
-
   return data
 }
 
-export default pretransform
+export default transform

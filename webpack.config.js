@@ -11,12 +11,13 @@ const config = {
   externals: [
     require('webpack-node-externals')()
   ],
+  entry: {
+    // index: path.resolve(__src, 'index'),
+    resource: path.resolve(__src, 'resource/object')
+  },
   output: {
     path: __dist,
     libraryTarget: 'commonjs2'
-  },
-  resolve: {
-    extensions: ['.js', '.json', '.yaml']
   },
   module: {
     rules: [

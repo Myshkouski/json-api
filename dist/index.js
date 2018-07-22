@@ -72,10 +72,10 @@ module.exports =
 /************************************************************************/
 /******/ ({
 
-/***/ "./src/cache/index.js":
-/*!****************************!*\
-  !*** ./src/cache/index.js ***!
-  \****************************/
+/***/ "./src/collection/id.js":
+/*!******************************!*\
+  !*** ./src/collection/id.js ***!
+  \******************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -85,17 +85,84 @@ module.exports =
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.IndexedCache = undefined;
+
+var _defineProperties = __webpack_require__(/*! babel-runtime/core-js/object/define-properties */ "babel-runtime/core-js/object/define-properties");
+
+var _defineProperties2 = _interopRequireDefault(_defineProperties);
 
 var _avl = __webpack_require__(/*! avl */ "avl");
 
 var _avl2 = _interopRequireDefault(_avl);
 
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
+
+var _get2 = _interopRequireDefault(_get);
+
+var _id = __webpack_require__(/*! ../resource/id */ "./src/resource/id.js");
+
+var _id2 = _interopRequireDefault(_id);
+
+var _compareResourceIds = __webpack_require__(/*! ../helpers/compareResourceIds */ "./src/helpers/compareResourceIds.js");
+
+var _compareResourceIds2 = _interopRequireDefault(_compareResourceIds);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-class IndexedCache {
-  constructor() {
-    this._avl = new _avl2.default((...args) => this.compare(...args), true);
+class ResourceIdCollection {
+  constructor(source, options) {
+    (0, _defineProperties2.default)(this, {
+      '_avl': {
+        value: new _avl2.default(_compareResourceIds2.default, true)
+      },
+      '_array': {
+        writable: true,
+        value: false
+      },
+      '_empty': {
+        writable: true,
+        value: true
+      }
+    });
+
+    const ResourceConstructor = this.ResourceConstructor;
+
+    if (arguments.length) {
+      if (Array.isArray(source)) {
+        source.forEach(source => {
+          const resource = new ResourceConstructor(source, options);
+
+          if (!collection.has(resource)) {
+            this.add(resource);
+          }
+        });
+
+        if (collection.count()) {
+          this._empty = false;
+        }
+        this._array = true;
+      } else {
+        const resource = new ResourceConstructor(source, options);
+        this.add(resource);
+        this._array = false;
+        this._empty = false;
+      }
+    }
+  }
+
+  get ResourceConstructor() {
+    return ResourceIdCollection;
+  }
+
+  isArray() {
+    return this._array;
+  }
+
+  isEmpty() {
+    return this._nullable;
+  }
+
+  has(resource) {
+    return this._avl.has(resource);
   }
 
   keys() {
@@ -106,44 +173,45 @@ class IndexedCache {
     return this._avl.values();
   }
 
-  has(key) {
-    return this._avl.contains(key);
+  entries() {
+    const entries = [];
+
+    this._avl.forEach(node => {
+      entries.push([node.key, node.data]);
+    });
+
+    return entries;
   }
 
-  compare(a, b) {
-    if (a < b) {
-      return -1;
+  count() {
+    return this.keys().length;
+  }
+
+  add(id, value = id) {
+    this._avl.insert(id, value);
+
+    return this.count();
+  }
+
+  update(resource) {
+    if (this.has(resource)) {
+      this.add(resource);
+      return true;
     }
 
-    if (a > b) {
-      return 1;
-    }
-
-    return 0;
-  }
-
-  set(key, value) {
-    this._avl.insert(key, value);
-
-    return this;
-  }
-
-  get(key) {
-    return this._avl.find(key);
-  }
-
-  remove(key) {
-    this._avl.remove(key);
+    return false;
   }
 }
-exports.IndexedCache = IndexedCache;
+
+exports.default = ResourceIdCollection;
+module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/collection.js":
-/*!***************************!*\
-  !*** ./src/collection.js ***!
-  \***************************/
+/***/ "./src/collection/index.js":
+/*!*********************************!*\
+  !*** ./src/collection/index.js ***!
+  \*********************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -154,79 +222,64 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _cache = __webpack_require__(/*! ./cache */ "./src/cache/index.js");
+var _id = __webpack_require__(/*! ./id */ "./src/collection/id.js");
 
-var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
+var _id2 = _interopRequireDefault(_id);
 
-var _get2 = _interopRequireDefault(_get);
+var _resource = __webpack_require__(/*! ../resource */ "./src/resource/index.js");
 
-var _post = __webpack_require__(/*! ./transform/post */ "./src/transform/post/index.js");
+var _resource2 = _interopRequireDefault(_resource);
+
+var _post = __webpack_require__(/*! ../transform/post */ "./src/transform/post/index.js");
 
 var _post2 = _interopRequireDefault(_post);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-class ResourceCollection extends _cache.IndexedCache {
-  static from(ResourceConstructor, source, options) {
-    const collection = new ResourceCollection();
+function _include(resource) {
+  const included = resource.included();
 
-    source.forEach(source => {
-      const resource = new ResourceConstructor(source, options);
-      if (!collection.has(resource)) {
-        collection.add(resource);
-      }
-    });
-
-    return collection;
-  }
-
-  compare(a, b) {
-    for (let key of ['type', 'id']) {
-      if (a[key] < b[key]) {
-        return -1;
-      }
-
-      if (a[key] > b[key]) {
-        return 1;
-      }
+  if (included) {
+    if (!this._included) {
+      this._included = {};
     }
 
-    return 0;
+    for (let type in included) {
+      if (!(type in this._included)) {
+        this._included[type] = (0, _id2.default)();
+      }
+
+      included.values().forEach(resource => this._included[type].add(resource));
+    }
   }
 
-  get id() {
-    return this.keys().map(key => key.id);
+  return included;
+}
+
+class ResourceCollection extends _id2.default {
+  constructor() {
+    super();
+
+    this._included = null;
+  }
+
+  get ResourceConstructor() {
+    return _resource2.default;
   }
 
   add(resource) {
-    if (typeof resource !== 'object') {
-      throw new TypeError();
-    }
+    const count = _id2.default.prototype.apply(this, arguments);
 
-    const { type, id } = resource;
+    _include.call(this, resource);
 
-    return this.set({ type, id }, resource);
+    return count;
   }
 
-  toJSON(options) {
-    const toJSONed = this.values().map(resource => resource.toJSON(options));
+  toJSON() {
+    const toJSONed = this.values().map(resource => resource.toJSON());
     return (0, _post2.default)(toJSONed);
   }
 }
-
-// ;
-// ['map', 'filter'].forEach(prop => {
-//   ResourceCollection.prototype[prop] = function(iteratee) {
-//     this._c = this.entries()[prop](function _iteratee(entry, index, entries) {
-//       return iteratee.call(this, entry[1], index, entries)
-//     }).reduce((_c, [key, value]) => {
-//       _c[key] = value
-//       return _c
-//     }, {})
-//
-//     return this
-//   }
-// })
 
 exports.default = ResourceCollection;
 module.exports = exports['default'];
@@ -271,9 +324,9 @@ var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
 
 var _isNil2 = _interopRequireDefault(_isNil);
 
-var _resource = __webpack_require__(/*! ./resource */ "./src/resource.js");
+var _resource = __webpack_require__(/*! ./resource */ "./src/resource/index.js");
 
-var _collection = __webpack_require__(/*! ./collection */ "./src/collection.js");
+var _collection = __webpack_require__(/*! ./collection */ "./src/collection/index.js");
 
 var _collection2 = _interopRequireDefault(_collection);
 
@@ -405,6 +458,47 @@ module.exports = exports['default'];
 
 /***/ }),
 
+/***/ "./src/helpers/compareResourceIds.js":
+/*!*******************************************!*\
+  !*** ./src/helpers/compareResourceIds.js ***!
+  \*******************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = compare;
+function compare(a, b) {
+  if (!a) {
+    if (!b) {
+      return 0;
+    }
+
+    return -1;
+  } else if (!b) {
+    return 1;
+  }
+
+  for (let key of ['type', 'id']) {
+    if (a[key] < b[key]) {
+      return -1;
+    }
+
+    if (a[key] > b[key]) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+module.exports = exports['default'];
+
+/***/ }),
+
 /***/ "./src/index.js":
 /*!**********************!*\
   !*** ./src/index.js ***!
@@ -431,7 +525,7 @@ var _fetch2 = __webpack_require__(/*! ./fetch */ "./src/fetch.js");
 
 var _fetch3 = _interopRequireDefault(_fetch2);
 
-var _resource = __webpack_require__(/*! ./resource */ "./src/resource.js");
+var _resource = __webpack_require__(/*! ./resource */ "./src/resource/index.js");
 
 var Resource = _interopRequireWildcard(_resource);
 
@@ -550,10 +644,10 @@ module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/resource.js":
-/*!*************************!*\
-  !*** ./src/resource.js ***!
-  \*************************/
+/***/ "./src/resource/id.js":
+/*!****************************!*\
+  !*** ./src/resource/id.js ***!
+  \****************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -563,104 +657,118 @@ module.exports = exports['default'];
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.ResourceIdentifier = exports.ResourceObject = undefined;
-
-var _entries = __webpack_require__(/*! babel-runtime/core-js/object/entries */ "babel-runtime/core-js/object/entries");
-
-var _entries2 = _interopRequireDefault(_entries);
 
 var _defineProperties = __webpack_require__(/*! babel-runtime/core-js/object/define-properties */ "babel-runtime/core-js/object/define-properties");
 
 var _defineProperties2 = _interopRequireDefault(_defineProperties);
 
-var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
+var _pre = __webpack_require__(/*! ../transform/pre */ "./src/transform/pre/index.js");
 
-var _set2 = _interopRequireDefault(_set);
-
-var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
-
-var _get2 = _interopRequireDefault(_get);
+var _pre2 = _interopRequireDefault(_pre);
 
 var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
 
 var _pick2 = _interopRequireDefault(_pick);
 
-var _isEmpty = __webpack_require__(/*! lodash/isEmpty */ "lodash/isEmpty");
-
-var _isEmpty2 = _interopRequireDefault(_isEmpty);
-
-var _resourceProps = __webpack_require__(/*! ./transform/resourceProps */ "./src/transform/resourceProps.js");
-
-var _pre = __webpack_require__(/*! ./transform/pre */ "./src/transform/pre/index.js");
-
-var _pre2 = _interopRequireDefault(_pre);
-
-var _fields = __webpack_require__(/*! ./transform/fields */ "./src/transform/fields.js");
-
-var _fields2 = _interopRequireDefault(_fields);
-
-var _typeStore = __webpack_require__(/*! ./typeStore */ "./src/typeStore.js");
-
-var _typeStore2 = _interopRequireDefault(_typeStore);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-class ResourceIdentifier {
+class ResourceId {
   constructor(source, options) {
     (0, _defineProperties2.default)(this, {
-      source: {
+      '_source': {
         value: source
       },
-      _r: {
+      _resource: {
         value: (0, _pre2.default)(source, options)
       }
     });
   }
 
   get id() {
-    return this._r && this._r.id;
+    return this._resource && this._resource.id;
   }
 
   get type() {
-    return this._r && this._r.type;
+    return this._resource && this._resource.type;
   }
 
   toJSON(options) {
-    return (0, _pick2.default)(this._r, ['type', 'id', 'meta']);
+    return (0, _pick2.default)(this._resource, ['type', 'id', 'meta']);
   }
 }
+exports.default = ResourceId;
+module.exports = exports['default'];
 
-class ResourceObject extends ResourceIdentifier {
-  constructor(source, options) {
-    super(source, options);
+/***/ }),
 
-    this._a = (0, _fields2.default)(this._r, options.fields);
-    this._i = include(this.source, options.relationships);
+/***/ "./src/resource/index.js":
+/*!*******************************!*\
+  !*** ./src/resource/index.js ***!
+  \*******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.ResourceID = undefined;
+
+var _id = __webpack_require__(/*! ./id */ "./src/resource/id.js");
+
+var _id2 = _interopRequireDefault(_id);
+
+var _id3 = __webpack_require__(/*! ../collection/id */ "./src/collection/id.js");
+
+var _id4 = _interopRequireDefault(_id3);
+
+var _fields = __webpack_require__(/*! ../transform/fields */ "./src/transform/fields.js");
+
+var _fields2 = _interopRequireDefault(_fields);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function include(source, options) {
+  if (typeof options === 'object') {
+    const included = {};
+
+    for (let type in options) {
+      included[type] = _id4.default.from(source, options[type]);
+    }
+
+    return included;
+  }
+
+  return null;
+}
+
+class ResourceObject extends _id2.default {
+  constructor(source, options = {}) {
+    super();
+
+    this._attrs = (0, _fields2.default)(this._r, options.fields);
+    this._included = include(this.source, options.relationships);
   }
 
   set(...args) {
-    return (0, _set2.default)(this._r, ...args);
+    return set(this._attrs, ...args);
   }
 
   get(...args) {
-    return (0, _get2.default)(this._r, ...args);
+    return get(this._attrs, ...args);
   }
 
-  toJSON(options) {
-    const resource = (0, _pick2.default)(this._r, _resourceProps.RESOURCE_PROPS);
+  included() {
+    return this._included;
+  }
+
+  toJSON() {
+    const resource = pick(this._r, RESOURCE_PROPS);
 
     if (this._i) {
-      resource.relationships = (0, _entries2.default)(this._i).reduce((relationships, entry) => {
-        const [type, store] = entry;
-
-        const relationship = store.toJSON(options && options[type]);
-
-        relationships[type] = {
-          data: (0, _isEmpty2.default)(relationship) ? null : relationship
-        };
-
-        return relationships;
-      }, {});
+      resource.relationships = this.included();
     }
 
     if (this._a) {
@@ -671,53 +779,8 @@ class ResourceObject extends ResourceIdentifier {
   }
 }
 
-function include(source, options) {
-  if (typeof options === 'object') {
-    const included = {};
-
-    for (let type in options) {
-      included[type] = new _typeStore2.default(ResourceIdentifier, source, options[type]);
-    }
-
-    return included;
-  }
-
-  return null;
-}
-
-// const source = {
-//   '_id': 1,
-//   'author': 1
-// }
-//
-// const options = {
-//   alias: {
-//     'id': '_id',
-//     'meta.source': ''
-//   },
-//   defaults: {
-//     'type': 'articles'
-//   },
-//   relationships: {
-//     'author': {
-//       from: 'author',
-//       alias: {
-//         'id': ''
-//       },
-//       defaults: {
-//         'type': 'people'
-//       }
-//     }
-//   }
-// }
-//
-// const i = new ResourceObject(source, options)
-// console.dir(i.toJSON(), {
-//   depth: Infinity
-// })
-
-exports.ResourceObject = ResourceObject;
-exports.ResourceIdentifier = ResourceIdentifier;
+exports.ResourceID = _id2.default;
+exports.default = ResourceObject;
 
 /***/ }),
 
@@ -726,9 +789,36 @@ exports.ResourceIdentifier = ResourceIdentifier;
   !*** ./src/transform/fields.js ***!
   \*********************************/
 /*! no static exports found */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-throw new Error("Module build failed: Error: ENOENT: no such file or directory, open '/home/alexei/Dev/json-api/src/transform/fields.js'");
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+
+var _pick2 = _interopRequireDefault(_pick);
+
+var _isEmpty = __webpack_require__(/*! lodash/isEmpty */ "lodash/isEmpty");
+
+var _isEmpty2 = _interopRequireDefault(_isEmpty);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+exports.default = (data, options) => {
+  const attributes = (0, _pick2.default)(data.attributes, options);
+
+  if (!(0, _isEmpty2.default)(attributes)) {
+    data.attributes = attributes;
+  }
+
+  return data;
+};
+
+module.exports = exports['default'];
 
 /***/ }),
 
@@ -858,14 +948,171 @@ module.exports = exports['default'];
 
 /***/ }),
 
+/***/ "./src/transform/pre/alias.js":
+/*!************************************!*\
+  !*** ./src/transform/pre/alias.js ***!
+  \************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
+
+var _assign2 = _interopRequireDefault(_assign);
+
+exports.default = function (data, options) {
+  return assignAlias(data, options, '');
+};
+
+var _omit = __webpack_require__(/*! lodash/omit */ "lodash/omit");
+
+var _omit2 = _interopRequireDefault(_omit);
+
+var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
+
+var _set2 = _interopRequireDefault(_set);
+
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
+
+var _get2 = _interopRequireDefault(_get);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function assignAlias(data, alias, fullPath) {
+  if (typeof alias == 'string') {
+    return alias.length ? (0, _get2.default)(data, alias) : data;
+  } else {
+    let obj = Array.isArray(alias) ? [] : (0, _assign2.default)({}, data);
+
+    if (typeof alias == 'object') {
+      const _omitProps = [];
+
+      for (let key in alias) {
+        const path = fullPath + key;
+
+        let _alias = alias[key];
+
+        const aliased = assignAlias(data, _alias, path);
+
+        if (path != _alias) {
+          _omitProps.push(_alias);
+        }
+
+        (0, _set2.default)(obj, key, aliased);
+      }
+
+      if (_omitProps.length) {
+        obj = (0, _omit2.default)(obj, _omitProps);
+      }
+    }
+
+    return obj;
+  }
+}
+
+module.exports = exports['default'];
+
+/***/ }),
+
 /***/ "./src/transform/pre/index.js":
 /*!************************************!*\
   !*** ./src/transform/pre/index.js ***!
   \************************************/
 /*! no static exports found */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-throw new Error("Module build failed: Error: ENOENT: no such file or directory, open '/home/alexei/Dev/json-api/src/transform/pre/index.js'");
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
+
+var _assign2 = _interopRequireDefault(_assign);
+
+var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
+
+var _merge2 = _interopRequireDefault(_merge);
+
+var _defaults = __webpack_require__(/*! lodash/defaults */ "lodash/defaults");
+
+var _defaults2 = _interopRequireDefault(_defaults);
+
+var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+
+var _pick2 = _interopRequireDefault(_pick);
+
+var _isObject = __webpack_require__(/*! lodash/isObject */ "lodash/isObject");
+
+var _isObject2 = _interopRequireDefault(_isObject);
+
+var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
+
+var _isNil2 = _interopRequireDefault(_isNil);
+
+var _alias = __webpack_require__(/*! ./alias */ "./src/transform/pre/alias.js");
+
+var _alias2 = _interopRequireDefault(_alias);
+
+var _resourceProps = __webpack_require__(/*! ../resourceProps */ "./src/transform/resourceProps.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function pretransform(data, options) {
+  if ((0, _isNil2.default)(data)) {
+    return data;
+  }
+
+  const isOptionsPassed = (0, _isObject2.default)(options);
+
+  if (isOptionsPassed) {
+    if ('alias' in options) {
+      data = (0, _alias2.default)(data, options.alias);
+    }
+
+    if ('defaults' in options) {
+      data = (0, _defaults2.default)({}, data, options.defaults);
+    }
+
+    if ('merge' in options) {
+      data = (0, _merge2.default)({}, data, options.merge);
+    }
+  }
+
+  if ((0, _isObject2.default)(data)) {
+    data = _resourceProps.RESOURCE_IDENTIFIER_ESSENTIAL_PROPS.reduce((data, key) => {
+      if ((0, _isNil2.default)(data[key])) {
+        const error = new TypeError(`Cannot transform '${key}' prop to string`);
+        error.data = data;
+        error.key = key;
+        throw error;
+      }
+
+      data[key] += '';
+
+      return data;
+    }, (0, _assign2.default)({}, data));
+  }
+
+  if (isOptionsPassed) {
+    if ('links' in options) {
+      data.links = options.links(data.type, data.id);
+    }
+  }
+
+  return data;
+}
+
+exports.default = pretransform;
+module.exports = exports['default'];
 
 /***/ }),
 
@@ -874,9 +1121,24 @@ throw new Error("Module build failed: Error: ENOENT: no such file or directory, 
   !*** ./src/transform/resourceProps.js ***!
   \****************************************/
 /*! no static exports found */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-throw new Error("Module build failed: Error: ENOENT: no such file or directory, open '/home/alexei/Dev/json-api/src/transform/resourceProps.js'");
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+// resource identifier & object members
+const RESOURCE_OPTIONAL_PROPS = exports.RESOURCE_OPTIONAL_PROPS = ['meta'];
+
+// resource identifier members
+const RESOURCE_IDENTIFIER_ESSENTIAL_PROPS = exports.RESOURCE_IDENTIFIER_ESSENTIAL_PROPS = ['type', 'id'];
+const RESOURCE_IDENTIFIER_PROPS = exports.RESOURCE_IDENTIFIER_PROPS = [...RESOURCE_IDENTIFIER_ESSENTIAL_PROPS, ...RESOURCE_OPTIONAL_PROPS];
+
+// resource object members
+const RESOURCE_OBJECT_OPTIONAL_PROPS = exports.RESOURCE_OBJECT_OPTIONAL_PROPS = ['attributes', 'relationships', 'links', ...RESOURCE_OPTIONAL_PROPS];
+const RESOURCE_PROPS = exports.RESOURCE_PROPS = [...RESOURCE_IDENTIFIER_ESSENTIAL_PROPS, ...RESOURCE_OBJECT_OPTIONAL_PROPS];
 
 /***/ }),
 
@@ -894,7 +1156,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _collection = __webpack_require__(/*! ./collection */ "./src/collection.js");
+var _collection = __webpack_require__(/*! ./collection */ "./src/collection/index.js");
 
 var _collection2 = _interopRequireDefault(_collection);
 
@@ -978,17 +1240,6 @@ module.exports = require("babel-runtime/core-js/object/define-properties");
 
 /***/ }),
 
-/***/ "babel-runtime/core-js/object/entries":
-/*!*******************************************************!*\
-  !*** external "babel-runtime/core-js/object/entries" ***!
-  \*******************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/object/entries");
-
-/***/ }),
-
 /***/ "babel-runtime/core-js/promise":
 /*!************************************************!*\
   !*** external "babel-runtime/core-js/promise" ***!
@@ -1008,6 +1259,17 @@ module.exports = require("babel-runtime/core-js/promise");
 /***/ (function(module, exports) {
 
 module.exports = require("babel-runtime/core-js/set");
+
+/***/ }),
+
+/***/ "lodash/defaults":
+/*!**********************************!*\
+  !*** external "lodash/defaults" ***!
+  \**********************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("lodash/defaults");
 
 /***/ }),
 
@@ -1044,6 +1306,17 @@ module.exports = require("lodash/isNil");
 
 /***/ }),
 
+/***/ "lodash/isObject":
+/*!**********************************!*\
+  !*** external "lodash/isObject" ***!
+  \**********************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("lodash/isObject");
+
+/***/ }),
+
 /***/ "lodash/merge":
 /*!*******************************!*\
   !*** external "lodash/merge" ***!
@@ -1052,6 +1325,17 @@ module.exports = require("lodash/isNil");
 /***/ (function(module, exports) {
 
 module.exports = require("lodash/merge");
+
+/***/ }),
+
+/***/ "lodash/omit":
+/*!******************************!*\
+  !*** external "lodash/omit" ***!
+  \******************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("lodash/omit");
 
 /***/ }),
 
@@ -1089,4 +1373,4 @@ module.exports = require("lodash/set");
 /***/ })
 
 /******/ });
-//# sourceMappingURL=main.js.map
+//# sourceMappingURL=index.js.map
