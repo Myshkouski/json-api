@@ -4,15 +4,12 @@ import defaults from 'lodash/defaults'
 import isEmpty from 'lodash/isEmpty'
 import isObject from 'lodash/isObject'
 import isFunction from 'lodash/isFunction'
-import coreTransformID from '../id/core'
 
 import {
   RESOURCE_PROPS
 } from '../../resource/props'
 
 function coreTransformObject(data, options) {
-  data = coreTransformID(data, options)
-
   const alienMembers = omit(data, RESOURCE_PROPS)
   if(!isEmpty(alienMembers)) {
     data.attributes = defaults(data.attributes, alienMembers)

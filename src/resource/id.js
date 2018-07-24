@@ -2,16 +2,18 @@ import pick from 'lodash/pick'
 import {
   RESOURCE_IDENTIFIER_PROPS
 } from './props'
-import transformID from '../transform/id'
+
+import preTransformID from '../transform/id/pre'
+import postTransformID from '../transform/id/post'
 
 export default class ResourceID {
-  static get transform() {
-    return transformID
+  static transform(source, options) {
+    return preTransformID(source, options)
   }
 
   constructor(source, options) {
     this._source = source
-    this._value = ResourceID.transform(source, options)
+    this._value = preTransformID(source, options)
   }
 
   get id() {
@@ -23,12 +25,6 @@ export default class ResourceID {
   }
 
   toJSON(options) {
-    if (isNil(this._value)) {
-      return null
-    }
-
-    data = pick(data, RESOURCE_PROPS)
-
-    return data
+    return postTransformID(this._value)
   }
 }

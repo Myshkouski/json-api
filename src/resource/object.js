@@ -1,6 +1,10 @@
 import ResourceID from './id'
-import transformObject from '../transform/object'
 import ResourceIDCollection from '../collection/id'
+
+import preTransformID from '../transform/id/pre'
+
+import preTransformObject from '../transform/object/pre'
+import postTransformObject from '../transform/object/post'
 
 function include(source, options) {
   if (typeof options === 'object') {
@@ -17,14 +21,14 @@ function include(source, options) {
 }
 
 class ResourceObject extends ResourceID {
-  static get transform() {
-    return transformObject
+  static transform(source, options) {
+    return preTransformObject(preTransformID(source, options))
   }
 
   constructor(source, options = {}) {
     super(source, options)
 
-    Object.assign(this._value, transformObject(source, options))
+    this._value = preTransformObject(this._value, options)
 
     this._included = include(source, options.relationships)
   }
@@ -41,14 +45,8 @@ class ResourceObject extends ResourceID {
     return this._included
   }
 
-  toJSON() {
-    const resource = this._value
-
-    if (this._included) {
-      resource.relationships = this._included.toJSON()
-    }
-
-    return resource
+  toJSON(options) {
+    return postTransformObject(this._value, options)
   }
 }
 
