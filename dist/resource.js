@@ -296,7 +296,10 @@ class ResourceID {
 
   constructor(source, options) {
     this._source = source;
+    // console.log('source', this._source)
+    // console.log('options', options)
     this._value = (0, _pre2.default)(source, options);
+    // console.log('value', this._value)
   }
 
   get id() {
@@ -361,7 +364,14 @@ function include(source, options) {
     const included = {};
 
     for (let type in options) {
-      included[type] = new _id4.default(source, options[type]);
+      const typeOptions = options[type];
+      let _source = source;
+
+      if ('from' in typeOptions) {
+        _source = (0, _get2.default)(source, typeOptions.from);
+      }
+
+      included[type] = new _id4.default(_source, typeOptions);
     }
 
     return included;
@@ -398,6 +408,9 @@ class ResourceObject extends _id2.default {
   }
 
   included() {
+    if (arguments.length) {
+      return this._included[arguments[0]];
+    }
     return this._included;
   }
 

@@ -18,6 +18,7 @@ const config = {
   },
   output: {
     path: __dist,
+    filename: '[name].js',
     libraryTarget: 'commonjs2'
   },
   module: {

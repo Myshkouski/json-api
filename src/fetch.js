@@ -14,27 +14,27 @@ import {
 import PromiseTree from './promiseTree'
 
 function createQueryIds(type, data) {
-  if (data._s instanceof ResourceIdentifier) {
-    const resource = data._s
+  if (data instanceof ResourceID) {
+    let included = data.included(type)
 
-    if (resource._i && resource._i[type]) {
-      return resource._i[type]._s.id
+    if (included) {
+      return included.id
     }
-  } else if (data._s instanceof ResourceCollection) {
+  } else if (data instanceof ResourceObjectCollection) {
     let ids = new Set()
 
-    const values = data._s.values()
+    const values = data.values()
 
     values.forEach(resource => {
-      if (resource._i && resource._i[type]) {
-        const _ids = resource._i[type]._s.id
-
-        if (_ids) {
-          if (Array.isArray(_ids)) {
-            _ids.forEach(id => ids.add(id))
-          } else {
-            ids.add(_ids)
-          }
+      let included = resource.included(type)
+      if (included) {
+        // console.log(resource.type, resource.id, 'includes', included.count(), type, included.values())
+        if (included.isArray()) {
+          included.values().forEach(resource => {
+            ids.add(resource.id)
+          })
+        } else {
+          ids.add(included.values()[0].id)
         }
       }
     })
@@ -80,11 +80,10 @@ export default async function fetch(queries, action, type, options, ...args) {
   })
 
   typeOptions.include.map(path => {
-    console.log(includedTree)
     return includedTree.parse(path)
   }).forEach(path => {
     path.forEach((type, index, path) => {
-      return includedTree.set(path.slice(0, index + 1), async (data, next) => {
+      includedTree.set(path.slice(0, index + 1), async (data, next) => {
         if (data) {
           const ids = createQueryIds(type, data)
 
@@ -111,19 +110,6 @@ export default async function fetch(queries, action, type, options, ...args) {
   })
 
   const r = await tree.resolve(null)
-
-  console.dir(r.map(([path, r]) => {
-    if (r) {
-      const {
-        data
-      } = r
-      return [path, data ? data.toJSON() : data]
-    } else {
-      return [path, r]
-    }
-  }), {
-    depth: Infinity
-  })
 
   return r
 }

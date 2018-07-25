@@ -13,7 +13,10 @@ export default class ResourceID {
 
   constructor(source, options) {
     this._source = source
+    // console.log('source', this._source)
+    // console.log('options', options)
     this._value = preTransformID(source, options)
+    // console.log('value', this._value)
   }
 
   get id() {

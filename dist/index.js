@@ -317,6 +317,9 @@ class ResourceCollection extends _id2.default {
   }
 
   included() {
+    if (arguments.length) {
+      return this._included[arguments[0]];
+    }
     return this._included;
   }
 
@@ -324,76 +327,6 @@ class ResourceCollection extends _id2.default {
     return (0, _transform2.default)(this.values(), options, globalScopeCollection).map(resource => resource.toJSON(options));
   }
 }
-
-// const sourceA = [
-//   {
-//     id: 1,
-//     test: true,
-//     name: 'one',
-//     rel: 1
-//   },
-//   {
-//     id: 2,
-//     test: true,
-//     name: 'two',
-//     rel: 1
-//   },
-//   {
-//     id: 3,
-//     test: true,
-//     name: 'three',
-//     rel: 1
-//   }
-// ]
-//
-// const sourceB = [
-//   {
-//     id: 1,
-//     type: 'types#rel'
-//   }
-// ]
-//
-// const options = {
-//   defaults: {
-//     type: 'types#test'
-//   },
-//   relationships: {
-//     'rel': {
-//       alias: {
-//         id: 'rel'
-//       },
-//       defaults: {
-//         type: 'types#test->rel'
-//       },
-//       // fallback: null,
-//       fallback: src => null
-//     }
-//   },
-//   sort: [
-//     ['name', -1]
-//   ],
-//   page: {
-//     strategy: 'offset',
-//     offset: 0,
-//     limit: 1
-//     // next: '/next/2',
-//     // prev() {
-//     //   return '/prev/1'
-//     // },
-//     // bounds() {
-//     //   return {
-//     //     offset: 1,
-//     //     end: 2
-//     //   }
-//     // }
-//   }
-// }
-//
-// const cA = new ResourceCollection(sourceA, options)
-// const cB = new ResourceCollection(sourceB, options)
-// const cAB = ResourceCollection.merge(cA, cB)
-//
-// console.log(cA.toJSON(options, cAB))
 
 exports.default = ResourceCollection;
 module.exports = exports['default'];
@@ -794,27 +727,27 @@ var _promiseTree2 = _interopRequireDefault(_promiseTree);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function createQueryIds(type, data) {
-  if (data._s instanceof ResourceIdentifier) {
-    const resource = data._s;
+  if (data instanceof _resource.ResourceID) {
+    let included = data.included(type);
 
-    if (resource._i && resource._i[type]) {
-      return resource._i[type]._s.id;
+    if (included) {
+      return included.id;
     }
-  } else if (data._s instanceof ResourceCollection) {
+  } else if (data instanceof _collection.ResourceObjectCollection) {
     let ids = new _set2.default();
 
-    const values = data._s.values();
+    const values = data.values();
 
     values.forEach(resource => {
-      if (resource._i && resource._i[type]) {
-        const _ids = resource._i[type]._s.id;
-
-        if (_ids) {
-          if (Array.isArray(_ids)) {
-            _ids.forEach(id => ids.add(id));
-          } else {
-            ids.add(_ids);
-          }
+      let included = resource.included(type);
+      if (included) {
+        // console.log(resource.type, resource.id, 'includes', included.count(), type, included.values())
+        if (included.isArray()) {
+          included.values().forEach(resource => {
+            ids.add(resource.id);
+          });
+        } else {
+          ids.add(included.values()[0].id);
         }
       }
     });
@@ -860,11 +793,10 @@ exports.default = async function fetch(queries, action, type, options, ...args) 
   });
 
   typeOptions.include.map(path => {
-    console.log(includedTree);
     return includedTree.parse(path);
   }).forEach(path => {
     path.forEach((type, index, path) => {
-      return includedTree.set(path.slice(0, index + 1), async (data, next) => {
+      includedTree.set(path.slice(0, index + 1), async (data, next) => {
         if (data) {
           const ids = createQueryIds(type, data);
 
@@ -891,19 +823,6 @@ exports.default = async function fetch(queries, action, type, options, ...args) 
   });
 
   const r = await tree.resolve(null);
-
-  console.dir(r.map(([path, r]) => {
-    if (r) {
-      const {
-        data
-      } = r;
-      return [path, data ? data.toJSON() : data];
-    } else {
-      return [path, r];
-    }
-  }), {
-    depth: Infinity
-  });
 
   return r;
 };
@@ -1027,8 +946,9 @@ class JsonApi {
     this._connected[type] = _fetch;
   }
 
-  fetch(action, type, options, ...args) {
-    return (0, _fetch3.default)(this._connected, action, type, options, ...args);
+  async fetch(action, type, options, ...args) {
+    const fetched = await (0, _fetch3.default)(this._connected, action, type, options, ...args);
+    return fetched;
   }
 }
 
@@ -1066,10 +986,10 @@ var _once2 = _interopRequireDefault(_once);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _resolveChildren(data, node, rootNode) {
-  node.forEach(child => {
+  node.children.forEach(child => {
     child.data.path = [...node.path, child.key];
   });
-  return _promise2.default.all(node.children().map(node => _resolve(data, node, rootNode)));
+  return _promise2.default.all(node.children.values().map(node => _resolve(data, node, rootNode)));
 }
 
 function _resolve(data, node, rootNode = node) {
@@ -1078,15 +998,15 @@ function _resolve(data, node, rootNode = node) {
   }
 
   if (node === rootNode) {
-    return _resolveChildren(data, node, rootNode).then(() => rootNode.value());
+    return _resolveChildren(data, node, rootNode).then(() => rootNode.value);
   }
 
   return _promise2.default.resolve(data).then(data => {
     const next = (0, _once2.default)(data => _resolveChildren(data, node, rootNode));
-    return node.value().call(null, data, next);
+    return node.value.call(null, data, next);
   }).then(data => {
     node.resolved = data;
-    rootNode.value().push([node.path, data]);
+    rootNode.value.push([node.path, data]);
     return data;
   }).catch(error => {
     node.rejected = rootNode.rejected = error;
@@ -1149,7 +1069,10 @@ class ResourceID {
 
   constructor(source, options) {
     this._source = source;
+    // console.log('source', this._source)
+    // console.log('options', options)
     this._value = (0, _pre2.default)(source, options);
+    // console.log('value', this._value)
   }
 
   get id() {
@@ -1244,7 +1167,14 @@ function include(source, options) {
     const included = {};
 
     for (let type in options) {
-      included[type] = new _id4.default(source, options[type]);
+      const typeOptions = options[type];
+      let _source = source;
+
+      if ('from' in typeOptions) {
+        _source = (0, _get2.default)(source, typeOptions.from);
+      }
+
+      included[type] = new _id4.default(_source, typeOptions);
     }
 
     return included;
@@ -1281,6 +1211,9 @@ class ResourceObject extends _id2.default {
   }
 
   included() {
+    if (arguments.length) {
+      return this._included[arguments[0]];
+    }
     return this._included;
   }
 
@@ -1727,7 +1660,7 @@ const createParseError = () => new TypeError(`Argument "path" should be non-empt
 
 class Node {
   constructor(options = {}) {
-    this.children = new _avl2.default(this.compare, true);
+    this.children = new _avl2.default(this.compare.bind(this), true);
   }
 
   parse(path) {
@@ -1770,19 +1703,26 @@ class Node {
   set() {
     let path = [];
     let value = arguments[0];
-    if (1 in arguments) {}
-    this.value = value;
+    let node = this;
+    if (1 in arguments) {
+      path = arguments[0];
+      value = arguments[1];
+      node = node.sub(path, true);
+    }
+    node.value = value;
+    return node;
   }
 
   sub(path, create = false) {
     path = this.parse(path);
     let node = this;
 
-    for (index = 0; index < path.length; index++) {
+    for (let index = 0; index < path.length; index++) {
+      const key = path[index];
       let child = node.children.find(key);
 
       if (child) {
-        node = child;
+        node = child.data;
       } else if (create) {
         child = new this.constructor();
 

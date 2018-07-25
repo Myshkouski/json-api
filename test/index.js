@@ -88,7 +88,7 @@ describe('Instance Methods', () => {
             data,
             included
           })
-        }, 50)
+        }, 0)
       })
     }
 
@@ -161,10 +161,7 @@ describe('Instance Methods', () => {
       jsonapi.connect('people', fetchPeople)
       jsonapi.connect('author', fetchPeople)
 
-      const {
-        data,
-        included
-      } = await jsonapi.fetch('read', 'articles', {
+      const fetched = await jsonapi.fetch('read', 'articles', {
         'articles': {
           alias: {
             'id': '_id',
@@ -173,6 +170,7 @@ describe('Instance Methods', () => {
           defaults: {
             type: 'articles'
           },
+          fallback: null,
           filter: {
             'id': 1
           },
@@ -198,6 +196,7 @@ describe('Instance Methods', () => {
               defaults: {
                 'type': 'comments'
               },
+              fallback: null,
               links: (type, id) => ({
                 self: `/articles/${ id }/relationships/comments`
               })
@@ -210,8 +209,9 @@ describe('Instance Methods', () => {
               defaults: {
                 'type': 'people'
               },
+              fallback: null,
               links: (type, id) => ({
-                self: `/articles/${ id }/relationships/comments`
+                self: `/articles/${ id }/relationships/author`
               })
             }
           }
@@ -247,9 +247,22 @@ describe('Instance Methods', () => {
             'twitter': 'social.twitter'
           },
           defaults: {
-            type: 'author'
+            type: 'people'
           }
         }
+      })
+
+      console.dir(fetched.map(([path, r]) => {
+        if (r) {
+          const {
+            data
+          } = r
+          return [path, data ? data.toJSON() : data]
+        } else {
+          return [path, r]
+        }
+      }), {
+        depth: Infinity
       })
     })
   })

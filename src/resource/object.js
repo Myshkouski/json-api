@@ -13,7 +13,14 @@ function include(source, options) {
     const included = {}
 
     for (let type in options) {
-      included[type] = new ResourceIDCollection(source, options[type])
+      const typeOptions = options[type]
+      let _source = source
+
+      if('from' in typeOptions) {
+        _source = get(source, typeOptions.from)
+      }
+
+      included[type] = new ResourceIDCollection(_source, typeOptions)
     }
 
     return included
@@ -50,6 +57,9 @@ class ResourceObject extends ResourceID {
   }
 
   included() {
+    if(arguments.length) {
+      return this._included[arguments[0]]
+    }
     return this._included
   }
 

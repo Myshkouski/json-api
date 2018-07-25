@@ -2,10 +2,10 @@ import Node from './tree'
 import once from 'lodash/once'
 
 function _resolveChildren(data, node, rootNode) {
-  node.forEach(child => {
+  node.children.forEach(child => {
     child.data.path = [...node.path, child.key]
   })
-  return Promise.all(node.children().map(node => _resolve(data, node, rootNode)))
+  return Promise.all(node.children.values().map(node => _resolve(data, node, rootNode)))
 }
 
 function _resolve(data, node, rootNode = node) {
@@ -14,17 +14,17 @@ function _resolve(data, node, rootNode = node) {
   }
 
   if (node === rootNode) {
-    return _resolveChildren(data, node, rootNode).then(() => rootNode.value())
+    return _resolveChildren(data, node, rootNode).then(() => rootNode.value)
   }
 
   return Promise.resolve(data)
     .then(data => {
       const next = once(data => _resolveChildren(data, node, rootNode))
-      return node.value().call(null, data, next)
+      return node.value.call(null, data, next)
     })
     .then(data => {
       node.resolved = data
-      rootNode.value().push([node.path, data])
+      rootNode.value.push([node.path, data])
       return data
     })
     .catch(error => {

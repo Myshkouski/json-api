@@ -60,8 +60,9 @@ class JsonApi {
     this._connected[type] = _fetch
   }
 
-  fetch(action, type, options, ...args) {
-    return fetch(this._connected, action, type, options, ...args)
+  async fetch(action, type, options, ...args) {
+    const fetched = await fetch(this._connected, action, type, options, ...args)
+    return fetched
   }
 }
 

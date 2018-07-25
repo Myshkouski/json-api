@@ -5,7 +5,7 @@ const createParseError = () => new TypeError(`Argument "path" should be non-empt
 
 class Node {
   constructor(options = {}) {
-    this.children = new Avl(this.compare, true)
+    this.children = new Avl(this.compare.bind(this), true)
   }
 
   parse(path) {
@@ -48,21 +48,26 @@ class Node {
   set() {
     let path = []
     let value = arguments[0]
+    let node = this
     if (1 in arguments) {
-
+      path = arguments[0]
+      value = arguments[1]
+      node = node.sub(path, true)
     }
-    this.value = value
+    node.value = value
+    return node
   }
 
   sub(path, create = false) {
     path = this.parse(path)
     let node = this
 
-    for (index = 0; index < path.length; index++) {
+    for (let index = 0; index < path.length; index++) {
+      const key = path[index]
       let child = node.children.find(key)
 
       if (child) {
-        node = child
+        node = child.data
       } else if (create) {
         child = new this.constructor()
 

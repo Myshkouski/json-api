@@ -287,6 +287,9 @@ class ResourceCollection extends _id2.default {
   }
 
   included() {
+    if (arguments.length) {
+      return this._included[arguments[0]];
+    }
     return this._included;
   }
 
@@ -294,76 +297,6 @@ class ResourceCollection extends _id2.default {
     return (0, _transform2.default)(this.values(), options, globalScopeCollection).map(resource => resource.toJSON(options));
   }
 }
-
-// const sourceA = [
-//   {
-//     id: 1,
-//     test: true,
-//     name: 'one',
-//     rel: 1
-//   },
-//   {
-//     id: 2,
-//     test: true,
-//     name: 'two',
-//     rel: 1
-//   },
-//   {
-//     id: 3,
-//     test: true,
-//     name: 'three',
-//     rel: 1
-//   }
-// ]
-//
-// const sourceB = [
-//   {
-//     id: 1,
-//     type: 'types#rel'
-//   }
-// ]
-//
-// const options = {
-//   defaults: {
-//     type: 'types#test'
-//   },
-//   relationships: {
-//     'rel': {
-//       alias: {
-//         id: 'rel'
-//       },
-//       defaults: {
-//         type: 'types#test->rel'
-//       },
-//       // fallback: null,
-//       fallback: src => null
-//     }
-//   },
-//   sort: [
-//     ['name', -1]
-//   ],
-//   page: {
-//     strategy: 'offset',
-//     offset: 0,
-//     limit: 1
-//     // next: '/next/2',
-//     // prev() {
-//     //   return '/prev/1'
-//     // },
-//     // bounds() {
-//     //   return {
-//     //     offset: 1,
-//     //     end: 2
-//     //   }
-//     // }
-//   }
-// }
-//
-// const cA = new ResourceCollection(sourceA, options)
-// const cB = new ResourceCollection(sourceB, options)
-// const cAB = ResourceCollection.merge(cA, cB)
-//
-// console.log(cA.toJSON(options, cAB))
 
 exports.default = ResourceCollection;
 module.exports = exports['default'];
@@ -793,7 +726,10 @@ class ResourceID {
 
   constructor(source, options) {
     this._source = source;
+    // console.log('source', this._source)
+    // console.log('options', options)
     this._value = (0, _pre2.default)(source, options);
+    // console.log('value', this._value)
   }
 
   get id() {
@@ -858,7 +794,14 @@ function include(source, options) {
     const included = {};
 
     for (let type in options) {
-      included[type] = new _id4.default(source, options[type]);
+      const typeOptions = options[type];
+      let _source = source;
+
+      if ('from' in typeOptions) {
+        _source = (0, _get2.default)(source, typeOptions.from);
+      }
+
+      included[type] = new _id4.default(_source, typeOptions);
     }
 
     return included;
@@ -895,6 +838,9 @@ class ResourceObject extends _id2.default {
   }
 
   included() {
+    if (arguments.length) {
+      return this._included[arguments[0]];
+    }
     return this._included;
   }
 
