@@ -3,6 +3,7 @@ import defaults from 'lodash/defaults'
 import pick from 'lodash/pick'
 import isObject from 'lodash/isObject'
 import isNil from 'lodash/isNil'
+import isFunction from 'lodash/isFunction'
 
 import assignAlias from './alias'
 import {
@@ -25,21 +26,31 @@ function transform(data, options) {
   }
 
   if (isObject(data)) {
-    data = RESOURCE_IDENTIFIER_ESSENTIAL_PROPS.reduce((data, key) => {
-      if (isNil(data[key])) {
-        const error = new TypeError(`Cannot transform '${ key }' prop to string`)
+    data = Object.assign({}, data)
+
+    for (let prop of RESOURCE_IDENTIFIER_ESSENTIAL_PROPS) {
+      if (isNil(data[prop])) {
+        if('fallback' in options) {
+          if(isFunction(options.fallback)) {
+            data = options.fallback(data)
+          } else {
+            data = options.fallback
+          }
+
+          break
+        }
+
+        const error = new TypeError(`Cannot transform '${ prop }' prop to string`)
         Object.assign(error, {
-          key,
-          data
+          data,
+          prop
         })
 
         throw error
       }
 
-      data[key] += ''
-
-      return data
-    }, Object.assign({}, data))
+      data[prop] += ''
+    }
   }
 
   return data

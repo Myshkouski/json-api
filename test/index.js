@@ -185,7 +185,7 @@ describe('Instance Methods', () => {
             limit: 10
           },
           include: [
-            // 'comments',
+            'comments',
             'comments.author',
             'author'
           ],

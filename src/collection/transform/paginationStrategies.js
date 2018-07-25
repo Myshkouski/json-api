@@ -1,8 +1,8 @@
-const parsePaginationQueryParam = param => {
+function parsePaginationQueryParam(param, fallback = 0) {
   param = parseInt(param)
 
   if (isNaN(param)) {
-    param = 0
+    param = fallback
   } else {
     param = Math.floor(param)
   }
@@ -10,9 +10,9 @@ const parsePaginationQueryParam = param => {
   return param
 }
 
-const tranformPaginationQuery = (length, offset, limit) => {
-  offset = parsePaginationQueryParam(offset)
-  limit = parsePaginationQueryParam(limit)
+function tranformPaginationQuery(length, offset, limit) {
+  offset = parsePaginationQueryParam(offset, 0)
+  limit = parsePaginationQueryParam(limit, length)
 
   if (offset < 0) {
     offset += length
@@ -69,10 +69,8 @@ export const offset = {
     } = tranformPaginationQuery(length, _offset, _limit)
 
     return {
-      page: {
-        offset,
-        limit
-      }
+      offset,
+      limit
     }
   },
   next(length, _offset, _end, _limit) {

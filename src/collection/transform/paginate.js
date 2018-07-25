@@ -1,28 +1,48 @@
-const applyPagination = (data, options) => {
-  const strategy = pagination[options.strategy]
+import isFunction from 'lodash/isFunction'
 
-  if (strategy) {
-    const {
-      offset,
-      end
-    } = strategy.bounds(data.length, options.offset, options.limit);
+import * as paginationStrategies from './paginationStrategies'
 
-    ['self', 'first', 'last', 'prev', 'next'].forEach(key => {
-      if (typeof strategy[key] == 'function') {
-        const query = strategy[key](data.length, offset, end, options.limit)
-      }
-    })
+const PAGINATION_LINKS_PROPS = ['self', 'first', 'last', 'prev', 'next']
 
-    data = data.slice(offset, end)
+const applyPagination = (dataArray, options) => {
+  let strategy = options
 
-    if (!data.length) {
-      data = null
+  if ('strategy' in options) {
+    strategy = paginationStrategies[options.strategy]
+
+    if (!strategy) {
+      throw new ReferenceError('Cannot use pagination strategy:', options.strategy)
     }
-
-    return data
   }
 
-  throw new ReferenceError('Cannot use pagination strategy:', options.strategy)
+  const {
+    offset,
+    end
+  } = strategy.bounds(dataArray.length, options.offset, options.limit)
+
+  for(let prop of PAGINATION_LINKS_PROPS) {
+    const createQuery = strategy[prop]
+    if(createQuery) {
+      let query
+      if(isFunction(createQuery)) {
+        query = createQuery(dataArray.length, offset, end, options.limit)
+      } else {
+        query = createQuery
+      }
+      // console.log('!', query)
+      /**
+        * TODO add links to collection body
+      */
+    }
+  }
+
+  dataArray = dataArray.slice(offset, end)
+
+  // if (!dataArray.length) {
+  //   dataArray = null
+  // }
+
+  return dataArray
 }
 
 export default applyPagination

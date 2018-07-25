@@ -1,3 +1,5 @@
+import get from 'lodash/get'
+
 import ResourceID from './id'
 import ResourceIDCollection from '../collection/id'
 
@@ -11,7 +13,7 @@ function include(source, options) {
     const included = {}
 
     for (let type in options) {
-      included[type] = ResourceIDCollection.from(source, options[type])
+      included[type] = new ResourceIDCollection(source, options[type])
     }
 
     return included
@@ -33,12 +35,18 @@ class ResourceObject extends ResourceID {
     this._included = include(source, options.relationships)
   }
 
-  set(...args) {
-    return set(this._attrs, ...args)
+  get attr() {
+    return this.attribute
   }
 
-  get(...args) {
-    return get(this._attrs, ...args)
+  attribute(path) {
+    return get(this.attributes(), path)
+  }
+
+  attributes() {
+    if(this._value) {
+      return this._value.attributes
+    }
   }
 
   included() {
@@ -70,10 +78,10 @@ const options = {
   }
 }
 
-const rID = new ResourceID(source, options)
-const r = new ResourceObject(source, options)
-
-console.log(rID.toJSON())
-console.log(r.toJSON())
+// const rID = new ResourceID(source, options)
+// const r = new ResourceObject(source, options)
+//
+// console.log(rID.toJSON())
+// console.log(r.toJSON())
 
 export default ResourceObject

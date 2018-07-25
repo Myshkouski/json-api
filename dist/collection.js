@@ -67,7 +67,7 @@ module.exports =
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = "./src/index.js");
+/******/ 	return __webpack_require__(__webpack_require__.s = "./src/collection/object.js");
 /******/ })
 /************************************************************************/
 /******/ ({
@@ -215,36 +215,6 @@ class ResourceIDCollection {
 
 exports.default = ResourceIDCollection;
 module.exports = exports['default'];
-
-/***/ }),
-
-/***/ "./src/collection/index.js":
-/*!*********************************!*\
-  !*** ./src/collection/index.js ***!
-  \*********************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.ResourceObjectCollection = exports.ResourceIDCollection = undefined;
-
-var _id = __webpack_require__(/*! ./id */ "./src/collection/id.js");
-
-var _id2 = _interopRequireDefault(_id);
-
-var _object = __webpack_require__(/*! ./object */ "./src/collection/object.js");
-
-var _object2 = _interopRequireDefault(_object);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-exports.ResourceIDCollection = _id2.default;
-exports.ResourceObjectCollection = _object2.default;
 
 /***/ }),
 
@@ -745,173 +715,6 @@ module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/fetch.js":
-/*!**********************!*\
-  !*** ./src/fetch.js ***!
-  \**********************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
-
-var _assign2 = _interopRequireDefault(_assign);
-
-var _from = __webpack_require__(/*! babel-runtime/core-js/array/from */ "babel-runtime/core-js/array/from");
-
-var _from2 = _interopRequireDefault(_from);
-
-var _set = __webpack_require__(/*! babel-runtime/core-js/set */ "babel-runtime/core-js/set");
-
-var _set2 = _interopRequireDefault(_set);
-
-var _merge = __webpack_require__(/*! lodash/merge */ "lodash/merge");
-
-var _merge2 = _interopRequireDefault(_merge);
-
-var _isEmpty = __webpack_require__(/*! lodash/isEmpty */ "lodash/isEmpty");
-
-var _isEmpty2 = _interopRequireDefault(_isEmpty);
-
-var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
-
-var _isNil2 = _interopRequireDefault(_isNil);
-
-var _resource = __webpack_require__(/*! ./resource */ "./src/resource/index.js");
-
-var _collection = __webpack_require__(/*! ./collection */ "./src/collection/index.js");
-
-var _promiseTree = __webpack_require__(/*! ./promiseTree */ "./src/promiseTree.js");
-
-var _promiseTree2 = _interopRequireDefault(_promiseTree);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function createQueryIds(type, data) {
-  if (data._s instanceof ResourceIdentifier) {
-    const resource = data._s;
-
-    if (resource._i && resource._i[type]) {
-      return resource._i[type]._s.id;
-    }
-  } else if (data._s instanceof ResourceCollection) {
-    let ids = new _set2.default();
-
-    const values = data._s.values();
-
-    values.forEach(resource => {
-      if (resource._i && resource._i[type]) {
-        const _ids = resource._i[type]._s.id;
-
-        if (_ids) {
-          if (Array.isArray(_ids)) {
-            _ids.forEach(id => ids.add(id));
-          } else {
-            ids.add(_ids);
-          }
-        }
-      }
-    });
-
-    ids = (0, _from2.default)(ids.values());
-
-    if ((0, _isEmpty2.default)(ids)) {
-      return null;
-    }
-
-    return ids;
-  }
-}
-
-exports.default = async function fetch(queries, action, type, options, ...args) {
-  const globalScopeCollection = new _collection.ResourceObjectCollection();
-
-  async function _fetch(type, typeOptions) {
-    const query = queries[type][action];
-    const prefetched = await query(typeOptions);
-
-    const result = {
-      data: new _collection.ResourceObjectCollection(prefetched.data, typeOptions)
-    };
-
-    return result;
-  }
-
-  const typeOptions = options[type];
-
-  const tree = new _promiseTree2.default();
-
-  const includedTree = tree.set([type], async (opts, next) => {
-    const result = await _fetch(type, typeOptions);
-
-    if ('include' in typeOptions) {
-      if (!('included' in result)) {
-        await next(result.data);
-      }
-    }
-
-    return result;
-  });
-
-  typeOptions.include.map(path => {
-    console.log(includedTree);
-    return includedTree.parse(path);
-  }).forEach(path => {
-    path.forEach((type, index, path) => {
-      return includedTree.set(path.slice(0, index + 1), async (data, next) => {
-        if (data) {
-          const ids = createQueryIds(type, data);
-
-          if ((0, _isNil2.default)(ids) || (0, _isEmpty2.default)(ids)) {
-            return null;
-          }
-
-          let typeOptions = (0, _assign2.default)({}, options[type]);
-
-          typeOptions.filter = (0, _merge2.default)({}, typeOptions.filter, {
-            id: ids
-          });
-
-          const result = await _fetch(type, typeOptions);
-
-          if (!('included' in result)) {
-            await next(result.data);
-          }
-
-          return result;
-        }
-      });
-    });
-  });
-
-  const r = await tree.resolve(null);
-
-  console.dir(r.map(([path, r]) => {
-    if (r) {
-      const {
-        data
-      } = r;
-      return [path, data ? data.toJSON() : data];
-    } else {
-      return [path, r];
-    }
-  }), {
-    depth: Infinity
-  });
-
-  return r;
-};
-
-module.exports = exports['default'];
-
-/***/ }),
-
 /***/ "./src/helpers/compareResourceIDs.js":
 /*!*******************************************!*\
   !*** ./src/helpers/compareResourceIDs.js ***!
@@ -949,165 +752,6 @@ function compare(a, b) {
 
   return 0;
 }
-module.exports = exports['default'];
-
-/***/ }),
-
-/***/ "./src/index.js":
-/*!**********************!*\
-  !*** ./src/index.js ***!
-  \**********************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
-
-var _get2 = _interopRequireDefault(_get);
-
-var _set = __webpack_require__(/*! lodash/set */ "lodash/set");
-
-var _set2 = _interopRequireDefault(_set);
-
-var _fetch2 = __webpack_require__(/*! ./fetch */ "./src/fetch.js");
-
-var _fetch3 = _interopRequireDefault(_fetch2);
-
-var _resource = __webpack_require__(/*! ./resource */ "./src/resource/index.js");
-
-var _collection = __webpack_require__(/*! ./collection */ "./src/collection/index.js");
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-class JsonApi {
-  static get ResourceObject() {
-    return _resource.ResourceObject;
-  }
-
-  static get ResourceID() {
-    return _resource.ResourceID;
-  }
-
-  static get ResourceObjectCollection() {
-    return _collection.ResourceObjectCollection;
-  }
-
-  static get ResourceIDCollection() {
-    return _collection.ResourceIDCollection;
-  }
-
-  constructor(options = {}) {
-    this.options = {};
-    this._connected = {};
-  }
-
-  connect(type, fetch) {
-    const keys = ['create', 'read', 'update', 'delete'];
-    const _createTypeError = () => new TypeError('Invalid argument type for fetch');
-    const _fetch = {};
-    if (fetch instanceof Function) {
-      keys.forEach(key => _fetch[key] = fetch);
-    } else if (fetch instanceof Object) {
-      keys.forEach(key => {
-        if (!_fetch[key] instanceof Function) {
-          throw _createTypeError();
-        }
-        _fetch[key] = fetch[key];
-      });
-    } else {
-      throw _createTypeError();
-    }
-
-    this._connected[type] = _fetch;
-  }
-
-  fetch(action, type, options, ...args) {
-    return (0, _fetch3.default)(this._connected, action, type, options, ...args);
-  }
-}
-
-exports.default = JsonApi;
-module.exports = exports['default'];
-
-/***/ }),
-
-/***/ "./src/promiseTree.js":
-/*!****************************!*\
-  !*** ./src/promiseTree.js ***!
-  \****************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-runtime/core-js/promise");
-
-var _promise2 = _interopRequireDefault(_promise);
-
-var _tree = __webpack_require__(/*! ./tree */ "./src/tree.js");
-
-var _tree2 = _interopRequireDefault(_tree);
-
-var _once = __webpack_require__(/*! lodash/once */ "lodash/once");
-
-var _once2 = _interopRequireDefault(_once);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function _resolveChildren(data, node, rootNode) {
-  node.forEach(child => {
-    child.data.path = [...node.path, child.key];
-  });
-  return _promise2.default.all(node.children().map(node => _resolve(data, node, rootNode)));
-}
-
-function _resolve(data, node, rootNode = node) {
-  if (rootNode.rejected) {
-    throw rootNode.rejected;
-  }
-
-  if (node === rootNode) {
-    return _resolveChildren(data, node, rootNode).then(() => rootNode.value());
-  }
-
-  return _promise2.default.resolve(data).then(data => {
-    const next = (0, _once2.default)(data => _resolveChildren(data, node, rootNode));
-    return node.value().call(null, data, next);
-  }).then(data => {
-    node.resolved = data;
-    rootNode.value().push([node.path, data]);
-    return data;
-  }).catch(error => {
-    node.rejected = rootNode.rejected = error;
-    throw error;
-  });
-}
-
-class PromiseTree extends _tree2.default {
-  constructor(options = {}) {
-    super(options);
-
-    this.set([]);
-    this.path = [];
-  }
-
-  resolve(data) {
-    return _resolve(data, this);
-  }
-}
-
-exports.default = PromiseTree;
 module.exports = exports['default'];
 
 /***/ }),
@@ -1166,36 +810,6 @@ class ResourceID {
 }
 exports.default = ResourceID;
 module.exports = exports['default'];
-
-/***/ }),
-
-/***/ "./src/resource/index.js":
-/*!*******************************!*\
-  !*** ./src/resource/index.js ***!
-  \*******************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.ResourceObject = exports.ResourceID = undefined;
-
-var _id = __webpack_require__(/*! ./id */ "./src/resource/id.js");
-
-var _id2 = _interopRequireDefault(_id);
-
-var _object = __webpack_require__(/*! ./object */ "./src/resource/object.js");
-
-var _object2 = _interopRequireDefault(_object);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-exports.ResourceID = _id2.default;
-exports.ResourceObject = _object2.default;
 
 /***/ }),
 
@@ -1699,127 +1313,6 @@ module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/tree.js":
-/*!*********************!*\
-  !*** ./src/tree.js ***!
-  \*********************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _avl = __webpack_require__(/*! avl */ "avl");
-
-var _avl2 = _interopRequireDefault(_avl);
-
-var _isString = __webpack_require__(/*! lodash/isString */ "lodash/isString");
-
-var _isString2 = _interopRequireDefault(_isString);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-const createParseError = () => new TypeError(`Argument "path" should be non-empty string or array of strings`);
-
-class Node {
-  constructor(options = {}) {
-    this.children = new _avl2.default(this.compare, true);
-  }
-
-  parse(path) {
-    if (Array.isArray(path)) {
-      for (let index in path) {
-        if (!(0, _isString2.default)(path[index])) {
-          throw createParseError();
-        }
-      }
-
-      return path;
-    } else if ((0, _isString2.default)(path)) {
-      return path.split('.');
-    } else {
-      throw createParseError();
-    }
-  }
-
-  compare(a, b) {
-    a = this.parse(a);
-    b = this.parse(b);
-
-    if (a.length > b.length) {
-      return 1;
-    } else if (a.length < b.length) {
-      return -1;
-    } else {
-      for (let index in a) {
-        if (a[index] > b[index]) {
-          return 1;
-        } else if (a[index] < b[index]) {
-          return -1;
-        }
-      }
-    }
-
-    return 0;
-  }
-
-  set() {
-    let path = [];
-    let value = arguments[0];
-    if (1 in arguments) {}
-    this.value = value;
-  }
-
-  sub(path, create = false) {
-    path = this.parse(path);
-    let node = this;
-
-    for (index = 0; index < path.length; index++) {
-      let child = node.children.find(key);
-
-      if (child) {
-        node = child;
-      } else if (create) {
-        child = new this.constructor();
-
-        node.children.insert(key, child);
-
-        node = child;
-      } else {
-        node = null;
-        break;
-      }
-    }
-
-    return node;
-  }
-
-  get(path) {
-    const node = this.sub(path);
-
-    if (node) {
-      return node.value;
-    }
-  }
-
-  append(path, value) {
-    const node = this.sub(path, true);
-
-    node.set(value);
-
-    return node;
-  }
-}
-
-exports.default = Node;
-module.exports = exports['default'];
-
-/***/ }),
-
 /***/ "avl":
 /*!**********************!*\
   !*** external "avl" ***!
@@ -1831,17 +1324,6 @@ module.exports = require("avl");
 
 /***/ }),
 
-/***/ "babel-runtime/core-js/array/from":
-/*!***************************************************!*\
-  !*** external "babel-runtime/core-js/array/from" ***!
-  \***************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/array/from");
-
-/***/ }),
-
 /***/ "babel-runtime/core-js/object/assign":
 /*!******************************************************!*\
   !*** external "babel-runtime/core-js/object/assign" ***!
@@ -1850,28 +1332,6 @@ module.exports = require("babel-runtime/core-js/array/from");
 /***/ (function(module, exports) {
 
 module.exports = require("babel-runtime/core-js/object/assign");
-
-/***/ }),
-
-/***/ "babel-runtime/core-js/promise":
-/*!************************************************!*\
-  !*** external "babel-runtime/core-js/promise" ***!
-  \************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/promise");
-
-/***/ }),
-
-/***/ "babel-runtime/core-js/set":
-/*!********************************************!*\
-  !*** external "babel-runtime/core-js/set" ***!
-  \********************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/set");
 
 /***/ }),
 
@@ -1941,17 +1401,6 @@ module.exports = require("lodash/isObject");
 
 /***/ }),
 
-/***/ "lodash/isString":
-/*!**********************************!*\
-  !*** external "lodash/isString" ***!
-  \**********************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/isString");
-
-/***/ }),
-
 /***/ "lodash/merge":
 /*!*******************************!*\
   !*** external "lodash/merge" ***!
@@ -1971,17 +1420,6 @@ module.exports = require("lodash/merge");
 /***/ (function(module, exports) {
 
 module.exports = require("lodash/omit");
-
-/***/ }),
-
-/***/ "lodash/once":
-/*!******************************!*\
-  !*** external "lodash/once" ***!
-  \******************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("lodash/once");
 
 /***/ }),
 
@@ -2008,4 +1446,4 @@ module.exports = require("lodash/set");
 /***/ })
 
 /******/ });
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=collection.js.map

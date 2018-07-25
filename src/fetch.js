@@ -4,12 +4,14 @@ import isNil from 'lodash/isNil'
 
 import {
   ResourceObject,
-  ResourceIdentifier
+  ResourceID
 } from './resource'
-import ResourceCollection from './collection'
+import {
+  ResourceIDCollection,
+  ResourceObjectCollection
+} from './collection'
 
 import PromiseTree from './promiseTree'
-import TypeStore from './typeStore'
 
 function createQueryIds(type, data) {
   if (data._s instanceof ResourceIdentifier) {
@@ -48,14 +50,14 @@ function createQueryIds(type, data) {
 }
 
 export default async function fetch(queries, action, type, options, ...args) {
-  const typeStore = new TypeStore(ResourceObject, [], {})
+  const globalScopeCollection = new ResourceObjectCollection()
 
   async function _fetch(type, typeOptions) {
     const query = queries[type][action]
     const prefetched = await query(typeOptions)
 
     const result = {
-      data: new TypeStore(ResourceObject, prefetched.data, typeOptions)
+      data: new ResourceObjectCollection(prefetched.data, typeOptions)
     }
 
     return result
@@ -78,6 +80,7 @@ export default async function fetch(queries, action, type, options, ...args) {
   })
 
   typeOptions.include.map(path => {
+    console.log(includedTree)
     return includedTree.parse(path)
   }).forEach(path => {
     path.forEach((type, index, path) => {

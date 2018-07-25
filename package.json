@@ -2,14 +2,14 @@
   "name": "@alexeimyshkouski/json-api",
   "version": "0.0.2",
   "description": "JSON API implementation",
-  "main": "dist/main",
+  "main": "dist/index",
   "module": "src/index",
   "scripts": {
     "build": "webpack-cli --mode production",
     "build-dev": "webpack-cli -w --mode development",
     "prepublishOnly": "npm run build && npm run test",
-    "start": "node dist/main",
-    "start-dev": "supervisor dist/main",
+    "start": "node dist/index",
+    "start-dev": "supervisor dist/index",
     "test": "mocha"
   },
   "author": "Alexei Myshkouski",

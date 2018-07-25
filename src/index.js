@@ -3,9 +3,33 @@ import set from 'lodash/set'
 
 import fetch from './fetch'
 
-import * as Resource from './resource'
+import {
+  ResourceObject,
+  ResourceID
+} from './resource'
+
+import {
+  ResourceIDCollection,
+  ResourceObjectCollection
+} from './collection'
 
 class JsonApi {
+  static get ResourceObject() {
+    return ResourceObject
+  }
+
+  static get ResourceID() {
+    return ResourceID
+  }
+
+  static get ResourceObjectCollection() {
+    return ResourceObjectCollection
+  }
+
+  static get ResourceIDCollection() {
+    return ResourceIDCollection
+  }
+
   constructor(options = {}) {
     this.options = {}
     this._connected = {}

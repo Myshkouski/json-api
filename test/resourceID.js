@@ -10,15 +10,15 @@ describe('ResourceID', () => {
   })
 
   it('creates an instance of JsonApi class', () => {
-    const ID = new ResourceID()
+    const resourceID = new ResourceID()
 
-    assert.ok(ID instanceof ResourceID)
+    assert.ok(resourceID instanceof ResourceID)
   })
 })
 
 describe('Instance Methods', () => {
   const source = {
-    id: 0123456789,
+    id: 1234567890,
     test: true
   }
 
@@ -28,10 +28,15 @@ describe('Instance Methods', () => {
     }
   }
 
+  const jsonRepresentation = {
+    id: '1234567890',
+    type: 'test-type'
+  }
+
   describe('#toJSON', () => {
     it('should ', async () => {
       const resourceID = new ResourceID(source, options)
-      console.log(resourceID.toJSON())
+      assert.deepEqual(resourceID.toJSON(), jsonRepresentation)
     })
   })
 })

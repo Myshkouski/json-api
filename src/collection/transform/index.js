@@ -1,19 +1,20 @@
 import sort from './sort'
+import paginate from './paginate'
 
-const posttransform = (data, options) => {
-  if(!options) {
+const postTransform = (data, options, globalScopeCollection) => {
+  if (!options) {
     return data
   }
 
-  if('sort' in options) {
-    data = sort(data, options.sort)
+  if ('sort' in options) {
+    data = sort(data, options.sort, globalScopeCollection)
   }
 
-  // if('page' in options) {
-  //   data = paginate(data, options.page)
-  // }
+  if ('page' in options) {
+    data = paginate(data, options.page)
+  }
 
   return data
 }
 
-export default posttransform
+export default postTransform

@@ -6,18 +6,10 @@ import compareResourceIDs from '../helpers/compareResourceIDs'
 
 class ResourceIDCollection {
   constructor(source, options) {
-    Object.defineProperties(this, {
-      '_avl': {
-        value: new Avl(compareResourceIDs, true)
-      },
-      '_array': {
-        writable: true,
-        value: false
-      },
-      '_empty': {
-        writable: true,
-        value: true
-      }
+    Object.assign(this, {
+      _avl: new Avl(compareResourceIDs, true),
+      _isArray: false,
+      _isEmpty: true
     })
 
     const ResourceConstructor = this.ResourceConstructor
@@ -25,40 +17,58 @@ class ResourceIDCollection {
     if(arguments.length) {
       if (Array.isArray(source)) {
         source.forEach(source => {
-          const resource = new ResourceConstructor(source, options)
+          const resource = source instanceof ResourceID ? source : new ResourceConstructor(source, options)
 
-          if (!collection.has(resource)) {
+          if (!this.has(resource)) {
             this.add(resource)
           }
         })
 
-        if (collection.count()) {
-          this._empty = false
+        if (this.count()) {
+          this._isEmpty = false
         }
-        this._array = true
+        this._isArray = true
       } else {
-        const resource = new ResourceConstructor(source, options)
+        const resource = source instanceof ResourceID ? source : new ResourceConstructor(source, options)
         this.add(resource)
-        this._array = false
-        this._empty = false
+        this._isArray = false
+        this._isEmpty = false
       }
     }
   }
 
   get ResourceConstructor() {
-    return ResourceIDCollection
+    return ResourceID
   }
 
   isArray() {
-    return this._array
+    return this._isArray
   }
 
   isEmpty() {
-    return this._nullable
+    return this._isEmpty
   }
 
-  has(resource) {
-    return this._avl.has(resource)
+  toJSON(options, globalScopeCollection = this) {
+    if(this.isArray()) {
+      return this.values().map(resourceID => resourceID.toJSON(options))
+    } else if(this.isEmpty()) {
+      return null
+    } else {
+      const resourceID = this.values()[0]
+      return resourceID.toJSON(options)
+    }
+  }
+
+  has(resourceID) {
+    return this._avl.contains(resourceID)
+  }
+
+  get(resourceID) {
+    const node = this._avl.find(resourceID)
+    if(node) {
+      return node.data
+    }
   }
 
   keys() {
@@ -86,8 +96,8 @@ class ResourceIDCollection {
     return this.keys().length
   }
 
-  add(id, value = id) {
-    this._avl.insert(id, value)
+  add(resource) {
+    this._avl.insert(resource, resource)
 
     return this.count()
   }

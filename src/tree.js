@@ -1,16 +1,10 @@
-import avl from 'avl'
-// import isString from 'lodash/isString'
-
-function isString(value) {
-  return (typeof value)[0] = 's'
-}
+import Avl from 'avl'
+import isString from 'lodash/isString'
 
 const createParseError = () => new TypeError(`Argument "path" should be non-empty string or array of strings`)
 
 class Node {
   constructor(options = {}) {
-    this.compare = options.compare || compare
-
     this.children = new Avl(this.compare, true)
   }
 
@@ -31,8 +25,8 @@ class Node {
   }
 
   compare(a, b) {
-    a = parse(a)
-    b = parse(b)
+    a = this.parse(a)
+    b = this.parse(b)
 
     if (a.length > b.length) {
       return 1
@@ -70,10 +64,7 @@ class Node {
       if (child) {
         node = child
       } else if (create) {
-        child = new Node({
-          parse,
-          compare
-        } = this)
+        child = new this.constructor()
 
         node.children.insert(key, child)
 
@@ -103,3 +94,5 @@ class Node {
     return node
   }
 }
+
+export default Node

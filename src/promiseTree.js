@@ -1,4 +1,4 @@
-import Node from '@alexeimyshkouski/node-tree'
+import Node from './tree'
 import once from 'lodash/once'
 
 function _resolveChildren(data, node, rootNode) {

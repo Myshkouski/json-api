@@ -12,7 +12,8 @@ const config = {
     require('webpack-node-externals')()
   ],
   entry: {
-    // index: path.resolve(__src, 'index'),
+    index: path.resolve(__src, 'index'),
+    collection: path.resolve(__src, 'collection/object'),
     resource: path.resolve(__src, 'resource/object')
   },
   output: {

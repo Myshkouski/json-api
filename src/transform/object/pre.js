@@ -11,6 +11,7 @@ import {
 
 function coreTransformObject(data, options) {
   const alienMembers = omit(data, RESOURCE_PROPS)
+
   if(!isEmpty(alienMembers)) {
     data.attributes = defaults(data.attributes, alienMembers)
   }
@@ -21,14 +22,6 @@ function coreTransformObject(data, options) {
         data.links = options.links(data.type, data.id)
       } else {
         data.links = Object.assign({}, options.links)
-      }
-    }
-
-    if('fields' in options) {
-      const attributes = pick(data.attributes, options.fields)
-
-      if(!isEmpty(attributes)) {
-        data.attributes = attributes
       }
     }
   }

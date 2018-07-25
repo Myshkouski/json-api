@@ -86,9 +86,9 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _defineProperties = __webpack_require__(/*! babel-runtime/core-js/object/define-properties */ "babel-runtime/core-js/object/define-properties");
+var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
 
-var _defineProperties2 = _interopRequireDefault(_defineProperties);
+var _assign2 = _interopRequireDefault(_assign);
 
 var _avl = __webpack_require__(/*! avl */ "avl");
 
@@ -110,18 +110,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 class ResourceIDCollection {
   constructor(source, options) {
-    (0, _defineProperties2.default)(this, {
-      '_avl': {
-        value: new _avl2.default(_compareResourceIDs2.default, true)
-      },
-      '_array': {
-        writable: true,
-        value: false
-      },
-      '_empty': {
-        writable: true,
-        value: true
-      }
+    (0, _assign2.default)(this, {
+      _avl: new _avl2.default(_compareResourceIDs2.default, true),
+      _isArray: false,
+      _isEmpty: true
     });
 
     const ResourceConstructor = this.ResourceConstructor;
@@ -129,40 +121,58 @@ class ResourceIDCollection {
     if (arguments.length) {
       if (Array.isArray(source)) {
         source.forEach(source => {
-          const resource = new ResourceConstructor(source, options);
+          const resource = source instanceof _id2.default ? source : new ResourceConstructor(source, options);
 
-          if (!collection.has(resource)) {
+          if (!this.has(resource)) {
             this.add(resource);
           }
         });
 
-        if (collection.count()) {
-          this._empty = false;
+        if (this.count()) {
+          this._isEmpty = false;
         }
-        this._array = true;
+        this._isArray = true;
       } else {
-        const resource = new ResourceConstructor(source, options);
+        const resource = source instanceof _id2.default ? source : new ResourceConstructor(source, options);
         this.add(resource);
-        this._array = false;
-        this._empty = false;
+        this._isArray = false;
+        this._isEmpty = false;
       }
     }
   }
 
   get ResourceConstructor() {
-    return ResourceIDCollection;
+    return _id2.default;
   }
 
   isArray() {
-    return this._array;
+    return this._isArray;
   }
 
   isEmpty() {
-    return this._nullable;
+    return this._isEmpty;
   }
 
-  has(resource) {
-    return this._avl.has(resource);
+  toJSON(options, globalScopeCollection = this) {
+    if (this.isArray()) {
+      return this.values().map(resourceID => resourceID.toJSON(options));
+    } else if (this.isEmpty()) {
+      return null;
+    } else {
+      const resourceID = this.values()[0];
+      return resourceID.toJSON(options);
+    }
+  }
+
+  has(resourceID) {
+    return this._avl.contains(resourceID);
+  }
+
+  get(resourceID) {
+    const node = this._avl.find(resourceID);
+    if (node) {
+      return node.data;
+    }
   }
 
   keys() {
@@ -187,8 +197,8 @@ class ResourceIDCollection {
     return this.keys().length;
   }
 
-  add(id, value = id) {
-    this._avl.insert(id, value);
+  add(resource) {
+    this._avl.insert(resource, resource);
 
     return this.count();
   }
@@ -269,20 +279,24 @@ var _pick2 = _interopRequireDefault(_pick);
 
 var _props = __webpack_require__(/*! ./props */ "./src/resource/props.js");
 
-var _id = __webpack_require__(/*! ../transform/id */ "./src/transform/id/index.js");
+var _pre = __webpack_require__(/*! ../transform/id/pre */ "./src/transform/id/pre.js");
 
-var _id2 = _interopRequireDefault(_id);
+var _pre2 = _interopRequireDefault(_pre);
+
+var _post = __webpack_require__(/*! ../transform/id/post */ "./src/transform/id/post.js");
+
+var _post2 = _interopRequireDefault(_post);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 class ResourceID {
-  static get transform() {
-    return _id2.default;
+  static transform(source, options) {
+    return (0, _pre2.default)(source, options);
   }
 
   constructor(source, options) {
     this._source = source;
-    this._value = ResourceID.transform(source, options);
+    this._value = (0, _pre2.default)(source, options);
   }
 
   get id() {
@@ -294,13 +308,7 @@ class ResourceID {
   }
 
   toJSON(options) {
-    if (isNil(this._value)) {
-      return null;
-    }
-
-    data = (0, _pick2.default)(data, RESOURCE_PROPS);
-
-    return data;
+    return (0, _post2.default)(this._value);
   }
 }
 exports.default = ResourceID;
@@ -322,21 +330,29 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _assign = __webpack_require__(/*! babel-runtime/core-js/object/assign */ "babel-runtime/core-js/object/assign");
+var _get = __webpack_require__(/*! lodash/get */ "lodash/get");
 
-var _assign2 = _interopRequireDefault(_assign);
+var _get2 = _interopRequireDefault(_get);
 
 var _id = __webpack_require__(/*! ./id */ "./src/resource/id.js");
 
 var _id2 = _interopRequireDefault(_id);
 
-var _object = __webpack_require__(/*! ../transform/object */ "./src/transform/object/index.js");
-
-var _object2 = _interopRequireDefault(_object);
-
 var _id3 = __webpack_require__(/*! ../collection/id */ "./src/collection/id.js");
 
 var _id4 = _interopRequireDefault(_id3);
+
+var _pre = __webpack_require__(/*! ../transform/id/pre */ "./src/transform/id/pre.js");
+
+var _pre2 = _interopRequireDefault(_pre);
+
+var _pre3 = __webpack_require__(/*! ../transform/object/pre */ "./src/transform/object/pre.js");
+
+var _pre4 = _interopRequireDefault(_pre3);
+
+var _post = __webpack_require__(/*! ../transform/object/post */ "./src/transform/object/post.js");
+
+var _post2 = _interopRequireDefault(_post);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -345,7 +361,7 @@ function include(source, options) {
     const included = {};
 
     for (let type in options) {
-      included[type] = _id4.default.from(source, options[type]);
+      included[type] = new _id4.default(source, options[type]);
     }
 
     return included;
@@ -355,38 +371,38 @@ function include(source, options) {
 }
 
 class ResourceObject extends _id2.default {
-  static get transform() {
-    return _object2.default;
+  static transform(source, options) {
+    return (0, _pre4.default)((0, _pre2.default)(source, options));
   }
 
   constructor(source, options = {}) {
     super(source, options);
 
-    (0, _assign2.default)(this._value, (0, _object2.default)(source, options));
+    this._value = (0, _pre4.default)(this._value, options);
 
     this._included = include(source, options.relationships);
   }
 
-  set(...args) {
-    return set(this._attrs, ...args);
+  get attr() {
+    return this.attribute;
   }
 
-  get(...args) {
-    return get(this._attrs, ...args);
+  attribute(path) {
+    return (0, _get2.default)(this.attributes(), path);
+  }
+
+  attributes() {
+    if (this._value) {
+      return this._value.attributes;
+    }
   }
 
   included() {
     return this._included;
   }
 
-  toJSON() {
-    const resource = this._value;
-
-    if (this._included) {
-      resource.relationships = this._included.toJSON();
-    }
-
-    return resource;
+  toJSON(options) {
+    return (0, _post2.default)(this._value, options);
   }
 }
 
@@ -408,15 +424,14 @@ const options = {
       someOtherAttr: 'someOtherValue'
     }
   }
-};
 
-const rID = new _id2.default(source, options);
-const r = new ResourceObject(source, options);
+  // const rID = new ResourceID(source, options)
+  // const r = new ResourceObject(source, options)
+  //
+  // console.log(rID.toJSON())
+  // console.log(r.toJSON())
 
-console.log(rID.toJSON());
-console.log(r.toJSON());
-
-exports.default = ResourceObject;
+};exports.default = ResourceObject;
 module.exports = exports['default'];
 
 /***/ }),
@@ -519,10 +534,57 @@ module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/transform/id/core.js":
+/***/ "./src/transform/id/post.js":
 /*!**********************************!*\
-  !*** ./src/transform/id/core.js ***!
+  !*** ./src/transform/id/post.js ***!
   \**********************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
+
+var _pick2 = _interopRequireDefault(_pick);
+
+var _isObject = __webpack_require__(/*! lodash/isObject */ "lodash/isObject");
+
+var _isObject2 = _interopRequireDefault(_isObject);
+
+var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
+
+var _isNil2 = _interopRequireDefault(_isNil);
+
+var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/props.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function transform(data, options) {
+  if ((0, _isNil2.default)(data)) {
+    return null;
+  }
+
+  if ((0, _isObject2.default)(data)) {
+    data = (0, _pick2.default)(data, _props.RESOURCE_IDENTIFIER_PROPS);
+  }
+
+  return data;
+}
+
+exports.default = transform;
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/transform/id/pre.js":
+/*!*********************************!*\
+  !*** ./src/transform/id/pre.js ***!
+  \*********************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -557,6 +619,10 @@ var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
 
 var _isNil2 = _interopRequireDefault(_isNil);
 
+var _isFunction = __webpack_require__(/*! lodash/isFunction */ "lodash/isFunction");
+
+var _isFunction2 = _interopRequireDefault(_isFunction);
+
 var _alias = __webpack_require__(/*! ./alias */ "./src/transform/id/alias.js");
 
 var _alias2 = _interopRequireDefault(_alias);
@@ -581,21 +647,31 @@ function transform(data, options) {
   }
 
   if ((0, _isObject2.default)(data)) {
-    data = _props.RESOURCE_IDENTIFIER_ESSENTIAL_PROPS.reduce((data, key) => {
-      if ((0, _isNil2.default)(data[key])) {
-        const error = new TypeError(`Cannot transform '${key}' prop to string`);
+    data = (0, _assign2.default)({}, data);
+
+    for (let prop of _props.RESOURCE_IDENTIFIER_ESSENTIAL_PROPS) {
+      if ((0, _isNil2.default)(data[prop])) {
+        if ('fallback' in options) {
+          if ((0, _isFunction2.default)(options.fallback)) {
+            data = options.fallback(data);
+          } else {
+            data = options.fallback;
+          }
+
+          break;
+        }
+
+        const error = new TypeError(`Cannot transform '${prop}' prop to string`);
         (0, _assign2.default)(error, {
-          key,
-          data
+          data,
+          prop
         });
 
         throw error;
       }
 
-      data[key] += '';
-
-      return data;
-    }, (0, _assign2.default)({}, data));
+      data[prop] += '';
+    }
   }
 
   return data;
@@ -606,10 +682,10 @@ module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/transform/id/index.js":
-/*!***********************************!*\
-  !*** ./src/transform/id/index.js ***!
-  \***********************************/
+/***/ "./src/transform/object/post.js":
+/*!**************************************!*\
+  !*** ./src/transform/object/post.js ***!
+  \**************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -620,6 +696,14 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
+
+var _isNil2 = _interopRequireDefault(_isNil);
+
+var _isEmpty = __webpack_require__(/*! lodash/isEmpty */ "lodash/isEmpty");
+
+var _isEmpty2 = _interopRequireDefault(_isEmpty);
+
 var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
 
 var _pick2 = _interopRequireDefault(_pick);
@@ -628,41 +712,43 @@ var _isObject = __webpack_require__(/*! lodash/isObject */ "lodash/isObject");
 
 var _isObject2 = _interopRequireDefault(_isObject);
 
-var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
+var _isFunction = __webpack_require__(/*! lodash/isFunction */ "lodash/isFunction");
 
-var _isNil2 = _interopRequireDefault(_isNil);
-
-var _core = __webpack_require__(/*! ./core */ "./src/transform/id/core.js");
-
-var _core2 = _interopRequireDefault(_core);
+var _isFunction2 = _interopRequireDefault(_isFunction);
 
 var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/props.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function transform(data, options) {
+function transformObject(data, options) {
   if ((0, _isNil2.default)(data)) {
     return null;
   }
 
-  data = (0, _core2.default)(data, options);
+  if ((0, _isObject2.default)(options)) {
+    if ('fields' in options) {
+      const attributes = (0, _pick2.default)(data.attributes, options.fields);
 
-  if ((0, _isObject2.default)(data)) {
-    data = (0, _pick2.default)(data, _props.RESOURCE_IDENTIFIER_PROPS);
+      if (!(0, _isEmpty2.default)(attributes)) {
+        data.attributes = attributes;
+      }
+    }
   }
+
+  data = (0, _pick2.default)(data, _props.RESOURCE_PROPS);
 
   return data;
 }
 
-exports.default = transform;
+exports.default = transformObject;
 module.exports = exports['default'];
 
 /***/ }),
 
-/***/ "./src/transform/object/core.js":
-/*!**************************************!*\
-  !*** ./src/transform/object/core.js ***!
-  \**************************************/
+/***/ "./src/transform/object/pre.js":
+/*!*************************************!*\
+  !*** ./src/transform/object/pre.js ***!
+  \*************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -701,18 +787,13 @@ var _isFunction = __webpack_require__(/*! lodash/isFunction */ "lodash/isFunctio
 
 var _isFunction2 = _interopRequireDefault(_isFunction);
 
-var _core = __webpack_require__(/*! ../id/core */ "./src/transform/id/core.js");
-
-var _core2 = _interopRequireDefault(_core);
-
 var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/props.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function coreTransformObject(data, options) {
-  data = (0, _core2.default)(data, options);
-
   const alienMembers = (0, _omit2.default)(data, _props.RESOURCE_PROPS);
+
   if (!(0, _isEmpty2.default)(alienMembers)) {
     data.attributes = (0, _defaults2.default)(data.attributes, alienMembers);
   }
@@ -725,71 +806,12 @@ function coreTransformObject(data, options) {
         data.links = (0, _assign2.default)({}, options.links);
       }
     }
-
-    if ('fields' in options) {
-      const attributes = (0, _pick2.default)(data.attributes, options.fields);
-
-      if (!(0, _isEmpty2.default)(attributes)) {
-        data.attributes = attributes;
-      }
-    }
   }
 
   return data;
 }
 
 exports.default = coreTransformObject;
-module.exports = exports['default'];
-
-/***/ }),
-
-/***/ "./src/transform/object/index.js":
-/*!***************************************!*\
-  !*** ./src/transform/object/index.js ***!
-  \***************************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _isNil = __webpack_require__(/*! lodash/isNil */ "lodash/isNil");
-
-var _isNil2 = _interopRequireDefault(_isNil);
-
-var _isEmpty = __webpack_require__(/*! lodash/isEmpty */ "lodash/isEmpty");
-
-var _isEmpty2 = _interopRequireDefault(_isEmpty);
-
-var _pick = __webpack_require__(/*! lodash/pick */ "lodash/pick");
-
-var _pick2 = _interopRequireDefault(_pick);
-
-var _core = __webpack_require__(/*! ./core */ "./src/transform/object/core.js");
-
-var _core2 = _interopRequireDefault(_core);
-
-var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/props.js");
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function transformObject(data, options) {
-  if ((0, _isNil2.default)(data)) {
-    return null;
-  }
-
-  data = (0, _core2.default)(data, options);
-
-  data = (0, _pick2.default)(data, _props.RESOURCE_PROPS);
-
-  return data;
-}
-
-exports.default = transformObject;
 module.exports = exports['default'];
 
 /***/ }),
@@ -813,17 +835,6 @@ module.exports = require("avl");
 /***/ (function(module, exports) {
 
 module.exports = require("babel-runtime/core-js/object/assign");
-
-/***/ }),
-
-/***/ "babel-runtime/core-js/object/define-properties":
-/*!*****************************************************************!*\
-  !*** external "babel-runtime/core-js/object/define-properties" ***!
-  \*****************************************************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-module.exports = require("babel-runtime/core-js/object/define-properties");
 
 /***/ }),
 
