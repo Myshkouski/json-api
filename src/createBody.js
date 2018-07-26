@@ -1,23 +1,17 @@
 import {
   ResourceObject
 } from './resource'
-import Collection from './collection'
+import {
+  ResourceObjectCollection
+} from './collection'
 
-export default function createBody(type, options, includeTypeOptions, avl) {
-  const {
-    data
-  } = avl.find(type).data
-
-  const included = data._s._i
-
-  const includedAvl = new Collection()
+export default function createBody(type, options, includeTypeOptions, globalScopeCollection) {
+  const included = new ResourceObjectCollection()
 
   for(let includedType in included) {
     const typeStore = included[includedType]
 
-    console.log(typeStore.single, typeStore)
-
-    if(typeStore.single) {
+    if(!typeStore.isArray()) {
       const resource = avl.find(type + '.' + includedType).data.data._s
 
       includedAvl.add(resource)
@@ -29,9 +23,9 @@ export default function createBody(type, options, includeTypeOptions, avl) {
       })
     }
   }
-
-  return {
-    data: data.toJSON(),
-    included: includedAvl.toJSON()
-  }
+  //
+  // return {
+  //   data: data.toJSON(),
+  //   included: includedAvl.toJSON()
+  // }
 }

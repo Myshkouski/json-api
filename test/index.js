@@ -161,7 +161,7 @@ describe('Instance Methods', () => {
       jsonapi.connect('people', fetchPeople)
       jsonapi.connect('author', fetchPeople)
 
-      const fetched = await jsonapi.fetch('read', 'articles', {
+      const options = {
         'articles': {
           alias: {
             'id': '_id',
@@ -250,19 +250,12 @@ describe('Instance Methods', () => {
             type: 'people'
           }
         }
-      })
+      }
 
-      console.dir(fetched.map(([path, r]) => {
-        if (r) {
-          const {
-            data
-          } = r
-          return [path, data ? data.toJSON() : data]
-        } else {
-          return [path, r]
-        }
-      }), {
-        depth: Infinity
+      const fetched = await jsonapi.fetch('read', 'articles', options)
+
+      console.dir(fetched.find('articles').data.data.toArray(options.articles), {
+        depth: 2
       })
     })
   })

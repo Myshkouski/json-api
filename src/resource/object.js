@@ -63,8 +63,8 @@ class ResourceObject extends ResourceID {
     return this._included
   }
 
-  toJSON(options) {
-    return postTransformObject(this._value, options)
+  toJSON() {
+    return postTransformObject(this._value, this._options)
   }
 }
 
@@ -89,9 +89,9 @@ const options = {
 }
 
 // const rID = new ResourceID(source, options)
-// const r = new ResourceObject(source, options)
-//
+const r = new ResourceObject(source, options)
+
 // console.log(rID.toJSON())
-// console.log(r.toJSON())
+console.log(r.toJSON())
 
 export default ResourceObject

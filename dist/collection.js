@@ -308,8 +308,12 @@ class ResourceCollection extends _id2.default {
     return this._included;
   }
 
-  toJSON(options, globalScopeCollection = this) {
-    return (0, _transform2.default)(this.values(), options, globalScopeCollection).map(resource => resource.toJSON(options));
+  toArray(options, globalScopeCollection = this) {
+    return (0, _transform2.default)(this.values(), options, globalScopeCollection);
+  }
+
+  toJSON(options, globalScopeCollection) {
+    return this.toArray(options, globalScopeCollection).map(resource => resource.toJSON(options));
   }
 }
 
@@ -740,11 +744,9 @@ class ResourceID {
   }
 
   constructor(source, options) {
-    this._source = source;
-    // console.log('source', this._source)
-    // console.log('options', options)
     this._value = (0, _pre2.default)(source, options);
-    // console.log('value', this._value)
+    this._source = source;
+    this._options = options;
   }
 
   get id() {
@@ -755,8 +757,8 @@ class ResourceID {
     return this._value && this._value.type;
   }
 
-  toJSON(options) {
-    return (0, _post2.default)(this._value);
+  toJSON() {
+    return (0, _post2.default)(this._value, this._options);
   }
 }
 exports.default = ResourceID;
@@ -859,8 +861,8 @@ class ResourceObject extends _id2.default {
     return this._included;
   }
 
-  toJSON(options) {
-    return (0, _post2.default)(this._value, options);
+  toJSON() {
+    return (0, _post2.default)(this._value, this._options);
   }
 }
 
@@ -884,12 +886,12 @@ const options = {
   }
 
   // const rID = new ResourceID(source, options)
-  // const r = new ResourceObject(source, options)
-  //
-  // console.log(rID.toJSON())
-  // console.log(r.toJSON())
+};const r = new ResourceObject(source, options);
 
-};exports.default = ResourceObject;
+// console.log(rID.toJSON())
+console.log(r.toJSON());
+
+exports.default = ResourceObject;
 module.exports = exports['default'];
 
 /***/ }),
@@ -1178,7 +1180,7 @@ var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/pro
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function transformObject(data, options) {
+function postTransformObject(data, options) {
   if ((0, _isNil2.default)(data)) {
     return null;
   }
@@ -1198,7 +1200,7 @@ function transformObject(data, options) {
   return data;
 }
 
-exports.default = transformObject;
+exports.default = postTransformObject;
 module.exports = exports['default'];
 
 /***/ }),
@@ -1249,7 +1251,7 @@ var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/pro
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function coreTransformObject(data, options) {
+function preTransformObject(data, options) {
   const alienMembers = (0, _omit2.default)(data, _props.RESOURCE_PROPS);
 
   if (!(0, _isEmpty2.default)(alienMembers)) {
@@ -1269,7 +1271,7 @@ function coreTransformObject(data, options) {
   return data;
 }
 
-exports.default = coreTransformObject;
+exports.default = preTransformObject;
 module.exports = exports['default'];
 
 /***/ }),

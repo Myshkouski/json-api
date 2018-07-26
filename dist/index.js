@@ -338,8 +338,12 @@ class ResourceCollection extends _id2.default {
     return this._included;
   }
 
-  toJSON(options, globalScopeCollection = this) {
-    return (0, _transform2.default)(this.values(), options, globalScopeCollection).map(resource => resource.toJSON(options));
+  toArray(options, globalScopeCollection = this) {
+    return (0, _transform2.default)(this.values(), options, globalScopeCollection);
+  }
+
+  toJSON(options, globalScopeCollection) {
+    return this.toArray(options, globalScopeCollection).map(resource => resource.toJSON(options));
   }
 }
 
@@ -693,6 +697,53 @@ module.exports = exports['default'];
 
 /***/ }),
 
+/***/ "./src/createBody.js":
+/*!***************************!*\
+  !*** ./src/createBody.js ***!
+  \***************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = createBody;
+
+var _resource = __webpack_require__(/*! ./resource */ "./src/resource/index.js");
+
+var _collection = __webpack_require__(/*! ./collection */ "./src/collection/index.js");
+
+function createBody(type, options, includeTypeOptions, globalScopeCollection) {
+  const included = new _collection.ResourceObjectCollection();
+
+  for (let includedType in included) {
+    const typeStore = included[includedType];
+
+    if (!typeStore.isArray()) {
+      const resource = avl.find(type + '.' + includedType).data.data._s;
+
+      includedAvl.add(resource);
+    } else {
+      const resources = avl.find(type + '.' + includedType).data.data._s;
+
+      resources._avl.forEach(node => {
+        includedAvl.add(node.data);
+      });
+    }
+  }
+  //
+  // return {
+  //   data: data.toJSON(),
+  //   included: includedAvl.toJSON()
+  // }
+}
+module.exports = exports['default'];
+
+/***/ }),
+
 /***/ "./src/fetch.js":
 /*!**********************!*\
   !*** ./src/fetch.js ***!
@@ -739,6 +790,10 @@ var _promiseTree = __webpack_require__(/*! ./promiseTree */ "./src/promiseTree.j
 
 var _promiseTree2 = _interopRequireDefault(_promiseTree);
 
+var _createBody = __webpack_require__(/*! ./createBody */ "./src/createBody.js");
+
+var _createBody2 = _interopRequireDefault(_createBody);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function createQueryIds(type, data) {
@@ -756,7 +811,6 @@ function createQueryIds(type, data) {
     values.forEach(resource => {
       let included = resource.included(type);
       if (included) {
-        // console.log(resource.type, resource.id, 'includes', included.count(), type, included.values())
         if (included.isArray()) {
           included.values().forEach(resource => {
             ids.add(resource.id);
@@ -807,9 +861,11 @@ exports.default = async function fetch(queries, action, type, options, ...args) 
     return result;
   });
 
-  typeOptions.include.map(path => {
+  const includeTypeOptions = typeOptions.include.map(path => {
     return includedTree.parse(path);
-  }).forEach(path => {
+  });
+
+  includeTypeOptions.forEach(path => {
     path.forEach((type, index, path) => {
       includedTree.set(path.slice(0, index + 1), async (data, next) => {
         if (data) {
@@ -837,9 +893,56 @@ exports.default = async function fetch(queries, action, type, options, ...args) 
     });
   });
 
-  const r = await tree.resolve(null);
+  return await tree.resolve(null);
 
-  return r;
+  // const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
+  //
+  // return body
+};
+
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/helpers/comparePaths.js":
+/*!*************************************!*\
+  !*** ./src/helpers/comparePaths.js ***!
+  \*************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _parsePath = __webpack_require__(/*! ./parsePath */ "./src/helpers/parsePath.js");
+
+var _parsePath2 = _interopRequireDefault(_parsePath);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+exports.default = (a, b) => {
+  a = (0, _parsePath2.default)(a);
+  b = (0, _parsePath2.default)(b);
+
+  if (a.length > b.length) {
+    return 1;
+  } else if (a.length < b.length) {
+    return -1;
+  } else {
+    for (let index in a) {
+      if (a[index] > b[index]) {
+        return 1;
+      } else if (a[index] < b[index]) {
+        return -1;
+      }
+    }
+  }
+
+  return 0;
 };
 
 module.exports = exports['default'];
@@ -883,6 +986,47 @@ function compare(a, b) {
 
   return 0;
 }
+module.exports = exports['default'];
+
+/***/ }),
+
+/***/ "./src/helpers/parsePath.js":
+/*!**********************************!*\
+  !*** ./src/helpers/parsePath.js ***!
+  \**********************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+function isString(value) {
+  return (typeof value)[0] === 's';
+}
+
+function createParseError() {
+  return new TypeError(`Argument "path" should be non-empty string or array of strings`);
+}
+
+exports.default = path => {
+  if (Array.isArray(path)) {
+    for (let index in path) {
+      if (!isString(path[index])) {
+        throw createParseError();
+      }
+    }
+
+    return path;
+  } else if (isString(path)) {
+    return path.split('.');
+  } else {
+    throw createParseError();
+  }
+};
+
 module.exports = exports['default'];
 
 /***/ }),
@@ -990,13 +1134,25 @@ var _promise = __webpack_require__(/*! babel-runtime/core-js/promise */ "babel-r
 
 var _promise2 = _interopRequireDefault(_promise);
 
+var _once = __webpack_require__(/*! lodash/once */ "lodash/once");
+
+var _once2 = _interopRequireDefault(_once);
+
+var _avl = __webpack_require__(/*! avl */ "avl");
+
+var _avl2 = _interopRequireDefault(_avl);
+
 var _tree = __webpack_require__(/*! ./tree */ "./src/tree.js");
 
 var _tree2 = _interopRequireDefault(_tree);
 
-var _once = __webpack_require__(/*! lodash/once */ "lodash/once");
+var _comparePaths = __webpack_require__(/*! ./helpers/comparePaths */ "./src/helpers/comparePaths.js");
 
-var _once2 = _interopRequireDefault(_once);
+var _comparePaths2 = _interopRequireDefault(_comparePaths);
+
+var _parsePath = __webpack_require__(/*! ./helpers/parsePath */ "./src/helpers/parsePath.js");
+
+var _parsePath2 = _interopRequireDefault(_parsePath);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -1021,7 +1177,7 @@ function _resolve(data, node, rootNode = node) {
     return node.value.call(null, data, next);
   }).then(data => {
     node.resolved = data;
-    rootNode.value.push([node.path, data]);
+    rootNode.value.insert(node.path, data);
     return data;
   }).catch(error => {
     node.rejected = rootNode.rejected = error;
@@ -1029,12 +1185,14 @@ function _resolve(data, node, rootNode = node) {
   });
 }
 
+const rootPath = (0, _parsePath2.default)([]);
+
 class PromiseTree extends _tree2.default {
   constructor(options = {}) {
     super(options);
 
-    this.set([]);
-    this.path = [];
+    this.set(new _avl2.default(_comparePaths2.default, true));
+    this.path = rootPath;
   }
 
   resolve(data) {
@@ -1083,11 +1241,9 @@ class ResourceID {
   }
 
   constructor(source, options) {
-    this._source = source;
-    // console.log('source', this._source)
-    // console.log('options', options)
     this._value = (0, _pre2.default)(source, options);
-    // console.log('value', this._value)
+    this._source = source;
+    this._options = options;
   }
 
   get id() {
@@ -1098,8 +1254,8 @@ class ResourceID {
     return this._value && this._value.type;
   }
 
-  toJSON(options) {
-    return (0, _post2.default)(this._value);
+  toJSON() {
+    return (0, _post2.default)(this._value, this._options);
   }
 }
 exports.default = ResourceID;
@@ -1232,8 +1388,8 @@ class ResourceObject extends _id2.default {
     return this._included;
   }
 
-  toJSON(options) {
-    return (0, _post2.default)(this._value, options);
+  toJSON() {
+    return (0, _post2.default)(this._value, this._options);
   }
 }
 
@@ -1257,12 +1413,12 @@ const options = {
   }
 
   // const rID = new ResourceID(source, options)
-  // const r = new ResourceObject(source, options)
-  //
-  // console.log(rID.toJSON())
-  // console.log(r.toJSON())
+};const r = new ResourceObject(source, options);
 
-};exports.default = ResourceObject;
+// console.log(rID.toJSON())
+console.log(r.toJSON());
+
+exports.default = ResourceObject;
 module.exports = exports['default'];
 
 /***/ }),
@@ -1551,7 +1707,7 @@ var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/pro
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function transformObject(data, options) {
+function postTransformObject(data, options) {
   if ((0, _isNil2.default)(data)) {
     return null;
   }
@@ -1571,7 +1727,7 @@ function transformObject(data, options) {
   return data;
 }
 
-exports.default = transformObject;
+exports.default = postTransformObject;
 module.exports = exports['default'];
 
 /***/ }),
@@ -1622,7 +1778,7 @@ var _props = __webpack_require__(/*! ../../resource/props */ "./src/resource/pro
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function coreTransformObject(data, options) {
+function preTransformObject(data, options) {
   const alienMembers = (0, _omit2.default)(data, _props.RESOURCE_PROPS);
 
   if (!(0, _isEmpty2.default)(alienMembers)) {
@@ -1642,7 +1798,7 @@ function coreTransformObject(data, options) {
   return data;
 }
 
-exports.default = coreTransformObject;
+exports.default = preTransformObject;
 module.exports = exports['default'];
 
 /***/ }),

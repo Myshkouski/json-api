@@ -30,7 +30,6 @@ function createQueryIds(type, data) {
     values.forEach(resource => {
       let included = resource.included(type)
       if (included) {
-        // console.log(resource.type, resource.id, 'includes', included.count(), type, included.values())
         if (included.isArray()) {
           included.values().forEach(resource => {
             ids.add(resource.id)
@@ -113,7 +112,9 @@ export default async function fetch(queries, action, type, options, ...args) {
     })
   })
 
-  const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
+  return await tree.resolve(null)
 
-  return r
+  // const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
+  //
+  // return body
 }

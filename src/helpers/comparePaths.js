@@ -1,8 +1,8 @@
 import parsePath from './parsePath'
 
 export default (a, b) => {
-  a = parse(a)
-  b = parse(b)
+  a = parsePath(a)
+  b = parsePath(b)
 
   if (a.length > b.length) {
     return 1

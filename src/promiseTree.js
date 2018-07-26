@@ -1,6 +1,7 @@
-import Node from './tree'
 import once from 'lodash/once'
 import Avl from 'avl'
+
+import Node from './tree'
 
 import comparePaths from './helpers/comparePaths'
 import parsePath from './helpers/parsePath'
@@ -28,7 +29,7 @@ function _resolve(data, node, rootNode = node) {
     })
     .then(data => {
       node.resolved = data
-      rootNode.value.push([node.path, data])
+      rootNode.value.insert(node.path, data)
       return data
     })
     .catch(error => {
@@ -37,12 +38,14 @@ function _resolve(data, node, rootNode = node) {
     })
 }
 
+const rootPath = parsePath([])
+
 class PromiseTree extends Node {
   constructor(options = {}) {
     super(options)
 
     this.set(new Avl(comparePaths, true))
-    this.path = parsePath([])
+    this.path = rootPath
   }
 
   resolve(data) {

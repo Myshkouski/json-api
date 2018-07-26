@@ -8,7 +8,7 @@ import {
   RESOURCE_PROPS
 } from '../../resource/props'
 
-function transformObject(data, options) {
+function postTransformObject(data, options) {
   if (isNil(data)) {
     return null
   }
@@ -28,4 +28,4 @@ function transformObject(data, options) {
   return data
 }
 
-export default transformObject
+export default postTransformObject

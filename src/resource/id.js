@@ -12,11 +12,9 @@ export default class ResourceID {
   }
 
   constructor(source, options) {
-    this._source = source
-    // console.log('source', this._source)
-    // console.log('options', options)
     this._value = preTransformID(source, options)
-    // console.log('value', this._value)
+    this._source = source
+    this._options = options
   }
 
   get id() {
@@ -27,7 +25,7 @@ export default class ResourceID {
     return this._value && this._value.type
   }
 
-  toJSON(options) {
-    return postTransformID(this._value)
+  toJSON() {
+    return postTransformID(this._value, this._options)
   }
 }

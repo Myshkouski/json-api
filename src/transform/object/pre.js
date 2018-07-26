@@ -9,7 +9,7 @@ import {
   RESOURCE_PROPS
 } from '../../resource/props'
 
-function coreTransformObject(data, options) {
+function preTransformObject(data, options) {
   const alienMembers = omit(data, RESOURCE_PROPS)
 
   if (!isEmpty(alienMembers)) {
@@ -29,4 +29,4 @@ function coreTransformObject(data, options) {
   return data
 }
 
-export default coreTransformObject
+export default preTransformObject

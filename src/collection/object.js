@@ -49,8 +49,12 @@ class ResourceCollection extends ResourceIDCollection {
     return this._included
   }
 
-  toJSON(options, globalScopeCollection = this) {
-    return transform(this.values(), options, globalScopeCollection).map(resource => resource.toJSON(options))
+  toArray(options, globalScopeCollection = this) {
+    return transform(this.values(), options, globalScopeCollection)
+  }
+
+  toJSON(options, globalScopeCollection) {
+    return this.toArray(options, globalScopeCollection).map(resource => resource.toJSON(options))
   }
 }
 
