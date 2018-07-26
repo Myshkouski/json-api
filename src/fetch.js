@@ -13,6 +13,8 @@ import {
 
 import PromiseTree from './promiseTree'
 
+import createBody from './createBody'
+
 function createQueryIds(type, data) {
   if (data instanceof ResourceID) {
     let included = data.included(type)
@@ -79,9 +81,11 @@ export default async function fetch(queries, action, type, options, ...args) {
     return result
   })
 
-  typeOptions.include.map(path => {
+  const includeTypeOptions = typeOptions.include.map(path => {
     return includedTree.parse(path)
-  }).forEach(path => {
+  })
+
+  includeTypeOptions.forEach(path => {
     path.forEach((type, index, path) => {
       includedTree.set(path.slice(0, index + 1), async (data, next) => {
         if (data) {
@@ -109,7 +113,7 @@ export default async function fetch(queries, action, type, options, ...args) {
     })
   })
 
-  const r = await tree.resolve(null)
+  const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
 
   return r
 }

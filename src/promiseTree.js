@@ -1,5 +1,9 @@
 import Node from './tree'
 import once from 'lodash/once'
+import Avl from 'avl'
+
+import comparePaths from './helpers/comparePaths'
+import parsePath from './helpers/parsePath'
 
 function _resolveChildren(data, node, rootNode) {
   node.children.forEach(child => {
@@ -37,8 +41,8 @@ class PromiseTree extends Node {
   constructor(options = {}) {
     super(options)
 
-    this.set([])
-    this.path = []
+    this.set(new Avl(comparePaths, true))
+    this.path = parsePath([])
   }
 
   resolve(data) {
