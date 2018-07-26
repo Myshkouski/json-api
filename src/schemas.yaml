@@ -24,15 +24,15 @@
   oneOf:
   - properties:
       testOneOfDefault:
-        default:              test
+        default:            test
       decoded:
         items:
-        - const:          data
-        - pattern:        ^((-)|([0-9])|([1-9][0-9]+))$
+        - const:            data
+        - pattern:          ^((-)|([0-9])|([1-9][0-9]+))$
       doc:
         properties:
           data:
-            default:      []
+            default:        []
 ---
   $id:                      '/'
   $async:                   true

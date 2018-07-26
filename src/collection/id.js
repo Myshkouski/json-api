@@ -14,7 +14,7 @@ class ResourceIDCollection {
 
     const ResourceConstructor = this.ResourceConstructor
 
-    if(arguments.length) {
+    if (arguments.length) {
       if (Array.isArray(source)) {
         source.forEach(source => {
           const resource = source instanceof ResourceID ? source : new ResourceConstructor(source, options)
@@ -50,9 +50,9 @@ class ResourceIDCollection {
   }
 
   toJSON(options, globalScopeCollection = this) {
-    if(this.isArray()) {
+    if (this.isArray()) {
       return this.values().map(resourceID => resourceID.toJSON(options))
-    } else if(this.isEmpty()) {
+    } else if (this.isEmpty()) {
       return null
     } else {
       const resourceID = this.values()[0]
@@ -66,7 +66,7 @@ class ResourceIDCollection {
 
   get(resourceID) {
     const node = this._avl.find(resourceID)
-    if(node) {
+    if (node) {
       return node.data
     }
   }
@@ -103,7 +103,7 @@ class ResourceIDCollection {
   }
 
   update(resource) {
-    if(this.has(resource)) {
+    if (this.has(resource)) {
       this.add(resource)
       return true
     }

@@ -14,10 +14,10 @@ function transformObject(data, options) {
   }
 
   if (isObject(options)) {
-    if('fields' in options) {
+    if ('fields' in options) {
       const attributes = pick(data.attributes, options.fields)
 
-      if(!isEmpty(attributes)) {
+      if (!isEmpty(attributes)) {
         data.attributes = attributes
       }
     }

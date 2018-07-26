@@ -43,7 +43,7 @@ class ResourceCollection extends ResourceIDCollection {
   }
 
   included() {
-    if(arguments.length) {
+    if (arguments.length) {
       return this._included[arguments[0]]
     }
     return this._included

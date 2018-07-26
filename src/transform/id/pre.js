@@ -30,8 +30,8 @@ function transform(data, options) {
 
     for (let prop of RESOURCE_IDENTIFIER_ESSENTIAL_PROPS) {
       if (isNil(data[prop])) {
-        if('fallback' in options) {
-          if(isFunction(options.fallback)) {
+        if ('fallback' in options) {
+          if (isFunction(options.fallback)) {
             data = options.fallback(data)
           } else {
             data = options.fallback

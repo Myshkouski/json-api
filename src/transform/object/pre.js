@@ -12,13 +12,13 @@ import {
 function coreTransformObject(data, options) {
   const alienMembers = omit(data, RESOURCE_PROPS)
 
-  if(!isEmpty(alienMembers)) {
+  if (!isEmpty(alienMembers)) {
     data.attributes = defaults(data.attributes, alienMembers)
   }
 
   if (isObject(options)) {
     if ('links' in options) {
-      if(isFunction(options.links)) {
+      if (isFunction(options.links)) {
         data.links = options.links(data.type, data.id)
       } else {
         data.links = Object.assign({}, options.links)

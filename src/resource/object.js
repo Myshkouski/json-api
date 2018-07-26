@@ -16,7 +16,7 @@ function include(source, options) {
       const typeOptions = options[type]
       let _source = source
 
-      if('from' in typeOptions) {
+      if ('from' in typeOptions) {
         _source = get(source, typeOptions.from)
       }
 
@@ -51,13 +51,13 @@ class ResourceObject extends ResourceID {
   }
 
   attributes() {
-    if(this._value) {
+    if (this._value) {
       return this._value.attributes
     }
   }
 
   included() {
-    if(arguments.length) {
+    if (arguments.length) {
       return this._included[arguments[0]]
     }
     return this._included

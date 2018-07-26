@@ -15,15 +15,15 @@
   "author": "Alexei Myshkouski",
   "license": "MIT",
   "dependencies": {
-    "ajv": "^6.5.0",
+    "ajv": "^6.5.2",
     "ajv-errors": "^1.0.0",
-    "async": "^2.6.0",
+    "async": "^2.6.1",
     "avl": "^1.4.3",
     "json8-patch": "^0.4.1",
     "lodash": "^4.17.10"
   },
   "devDependencies": {
-    "babel-loader": "^7.1.3",
+    "babel-loader": "^7.1.5",
     "babel-plugin-add-module-exports": "^0.2.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
@@ -32,12 +32,12 @@
     "babel-preset-es2017": "^6.24.1",
     "eslint": "^4.19.1",
     "eslint-config-airbnb-base": "^12.1.0",
-    "eslint-loader": "^2.0.0",
-    "eslint-plugin-import": "^2.11.0",
+    "eslint-loader": "^2.1.0",
+    "eslint-plugin-import": "^2.13.0",
     "json-loader": "^0.5.7",
-    "mocha": "^5.1.1",
-    "webpack": "^4.8.3",
-    "webpack-cli": "^2.1.3",
+    "mocha": "^5.2.0",
+    "webpack": "^4.16.2",
+    "webpack-cli": "^2.1.5",
     "webpack-node-externals": "^1.7.2",
     "yml-loader": "^2.1.0"
   }

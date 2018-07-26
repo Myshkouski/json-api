@@ -15,7 +15,7 @@ export const addSchema = schemas => ajv.addShema(schema)
 export const getSchemas = refs => {
   const schemas = {}
 
-  for(let key in ajv._schemas) {
+  for (let key in ajv._schemas) {
     schemas[key] = ajv._schemas[key].schema
   }
 
