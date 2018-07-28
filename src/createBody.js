@@ -5,27 +5,16 @@ import {
   ResourceObjectCollection
 } from './collection'
 
-export default function createBody(type, options, includeTypeOptions, globalScopeCollection) {
+export default function createBody(type, options, includeTypeOptions, fetched) {
   const included = new ResourceObjectCollection()
 
-  for(let includedType in included) {
-    const typeStore = included[includedType]
-
-    if(!typeStore.isArray()) {
-      const resource = avl.find(type + '.' + includedType).data.data._s
-
-      includedAvl.add(resource)
-    } else {
-      const resources = avl.find(type + '.' + includedType).data.data._s
-
-      resources._avl.forEach(node => {
-        includedAvl.add(node.data)
-      })
-    }
+  const {
+    data
+  } = fetched.find(type).data
+  console.log(data.toJSON(options))
+  
+  return {
+    data: data.toJSON(),
+    // included: includedAvl.toJSON()
   }
-  //
-  // return {
-  //   data: data.toJSON(),
-  //   included: includedAvl.toJSON()
-  // }
 }

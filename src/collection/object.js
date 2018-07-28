@@ -1,6 +1,5 @@
 import ResourceIDCollection from './id'
 import ResourceObject from '../resource/object'
-import transform from './transform'
 
 function _include(resource) {
   const included = resource.included()
@@ -25,11 +24,6 @@ function _include(resource) {
 }
 
 class ResourceCollection extends ResourceIDCollection {
-  static merge(a, ...collections) {
-    const source = [a, ...collections].reduce((source, collection) => source.concat(collection.values()), [])
-    return new ResourceCollection(source, {})
-  }
-
   get ResourceConstructor() {
     return ResourceObject
   }
@@ -47,10 +41,6 @@ class ResourceCollection extends ResourceIDCollection {
       return this._included[arguments[0]]
     }
     return this._included
-  }
-
-  toArray(options, globalScopeCollection = this) {
-    return transform(this.values(), options, globalScopeCollection)
   }
 
   toJSON(options, globalScopeCollection) {

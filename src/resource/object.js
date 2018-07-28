@@ -56,7 +56,7 @@ class ResourceObject extends ResourceID {
     }
   }
 
-  included() {
+  included(options = {}) {
     if (arguments.length) {
       return this._included[arguments[0]]
     }
@@ -89,9 +89,9 @@ const options = {
 }
 
 // const rID = new ResourceID(source, options)
-const r = new ResourceObject(source, options)
+// const r = new ResourceObject(source, options)
 
 // console.log(rID.toJSON())
-console.log(r.toJSON())
+// console.log(r.toJSON())
 
 export default ResourceObject

@@ -112,9 +112,9 @@ export default async function fetch(queries, action, type, options, ...args) {
     })
   })
 
-  return await tree.resolve(null)
+  // return await tree.resolve(null)
 
-  // const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
-  //
-  // return body
+  const body = createBody(type, options, includeTypeOptions, await tree.resolve(null))
+
+  return body
 }

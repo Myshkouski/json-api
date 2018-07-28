@@ -172,7 +172,7 @@ describe('Instance Methods', () => {
           },
           fallback: null,
           filter: {
-            'id': [1]
+            // 'id': [1, 2]
           },
           fields: [
             'title'
@@ -254,9 +254,9 @@ describe('Instance Methods', () => {
 
       const fetched = await jsonapi.fetch('read', 'articles', options)
 
-      console.dir(fetched.find('articles').data.data.toArray(options.articles), {
-        depth: 2
-      })
+      // console.dir(fetched.find('articles').data.data.toArray(options.articles), {
+      //   depth: 2
+      // })
     })
   })
 })

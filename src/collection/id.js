@@ -3,8 +3,14 @@ import get from 'lodash/get'
 
 import ResourceID from '../resource/id'
 import compareResourceIDs from '../helpers/compareResourceIDs'
+import transform from './transform'
 
 class ResourceIDCollection {
+  static merge(a, ...collections) {
+    const source = [a, ...collections].reduce((source, collection) => source.concat(collection.values()), [])
+    return new this.constructor(source, {})
+  }
+
   constructor(source, options) {
     Object.assign(this, {
       _avl: new Avl(compareResourceIDs, true),
@@ -77,6 +83,10 @@ class ResourceIDCollection {
 
   values() {
     return this._avl.values()
+  }
+
+  toArray(options, globalScopeCollection = this) {
+    return transform(this.values(), options, globalScopeCollection)
   }
 
   entries() {
