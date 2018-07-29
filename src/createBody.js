@@ -11,8 +11,9 @@ export default function createBody(type, options, includeTypeOptions, fetched) {
   const {
     data
   } = fetched.find(type).data
+
   console.log(data.toJSON(options))
-  
+
   return {
     data: data.toJSON(),
     // included: includedAvl.toJSON()

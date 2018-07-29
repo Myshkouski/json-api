@@ -24,6 +24,11 @@ function _include(resource) {
 }
 
 class ResourceCollection extends ResourceIDCollection {
+  static merge(a, ...collections) {
+    const source = [a, ...collections].reduce((source, collection) => source.concat(collection.values()), [])
+    return new ResourceCollection(source, {})
+  }
+
   get ResourceConstructor() {
     return ResourceObject
   }

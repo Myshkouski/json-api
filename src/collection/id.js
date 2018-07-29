@@ -8,7 +8,7 @@ import transform from './transform'
 class ResourceIDCollection {
   static merge(a, ...collections) {
     const source = [a, ...collections].reduce((source, collection) => source.concat(collection.values()), [])
-    return new this.constructor(source, {})
+    return new ResourceIDCollection(source, {})
   }
 
   constructor(source, options) {
