@@ -1,17 +1,15 @@
-import sort from './sort'
-import paginate from './paginate'
+import pre from './pre'
+import include from './include'
 
 const postTransform = (data, options, globalScopeCollection) => {
   if (!options) {
     return data
   }
 
-  if ('sort' in options) {
-    data = sort(data, options.sort, globalScopeCollection)
-  }
+  data = pre(data, options, globalScopeCollection)
 
-  if ('page' in options) {
-    data = paginate(data, options.page)
+  if('include' in options) {
+    data = include(data, options.include, globalScopeCollection)
   }
 
   return data

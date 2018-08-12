@@ -88,7 +88,7 @@
         A JSON object MUST be
         at the root of every JSON API
         request and response containing data
-      # see NOTE 1
+      # see NOTE 2
       additionalProperties: >-
         Unless otherwise noted, objects defined
         by this specification MUST NOT contain

@@ -36,7 +36,7 @@ function tranformPaginationQuery(length, offset, limit) {
   }
 }
 
-export const offset = {
+const offset = {
   limit(clientLimit, serverLimit) {
     let limit = parsePaginationQueryParam(clientLimit)
 
@@ -125,4 +125,12 @@ export const offset = {
       limit
     }
   }
+}
+
+export {
+  offset
+}
+
+export default {
+  offset
 }

@@ -3,7 +3,7 @@ import get from 'lodash/get'
 
 import ResourceID from '../resource/id'
 import compareResourceIDs from '../helpers/compareResourceIDs'
-import transform from './transform'
+import transform from './transform/pre'
 
 class ResourceIDCollection {
   static merge(a, ...collections) {
@@ -55,13 +55,17 @@ class ResourceIDCollection {
     return this._isEmpty
   }
 
+  toArray(options, globalScopeCollection = this) {
+    return transform(this.values(), options, globalScopeCollection)
+  }
+
   toJSON(options, globalScopeCollection = this) {
     if (this.isArray()) {
-      return this.values().map(resourceID => resourceID.toJSON(options))
+      return this.toArray(options, globalScopeCollection).map(resourceID => resourceID.toJSON(options))
     } else if (this.isEmpty()) {
       return null
     } else {
-      const resourceID = this.values()[0]
+      const resourceID = this.toArray(options, globalScopeCollection)[0]
       return resourceID.toJSON(options)
     }
   }
@@ -83,10 +87,6 @@ class ResourceIDCollection {
 
   values() {
     return this._avl.values()
-  }
-
-  toArray(options, globalScopeCollection = this) {
-    return transform(this.values(), options, globalScopeCollection)
   }
 
   entries() {

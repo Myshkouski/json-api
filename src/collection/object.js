@@ -1,6 +1,8 @@
 import ResourceIDCollection from './id'
 import ResourceObject from '../resource/object'
 
+import transform from './transform/index'
+
 function _include(resource) {
   const included = resource.included()
 
@@ -46,6 +48,10 @@ class ResourceCollection extends ResourceIDCollection {
       return this._included[arguments[0]]
     }
     return this._included
+  }
+
+  toArray(options, globalScopeCollection = this) {
+    return transform(this.values(), options, globalScopeCollection)
   }
 
   toJSON(options, globalScopeCollection) {

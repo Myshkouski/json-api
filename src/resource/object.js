@@ -63,8 +63,23 @@ class ResourceObject extends ResourceID {
     return this._included
   }
 
-  toJSON() {
-    return postTransformObject(this._value, this._options)
+  toJSON(options) {
+    const data = postTransformObject(this._value, this._options)
+
+    if(options) {
+      if('include' in options) {
+        data.relationships = {}
+        for(let type in options.include) {
+          if(type in this._included) {
+            data.relationships[type] = this._included[type].map(resourceID => resourceID.toJSON())
+          } else {
+            data.relationships[type] = null
+          }
+        }
+      }
+    }
+
+    return data
   }
 }
 

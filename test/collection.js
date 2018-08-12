@@ -1,6 +1,7 @@
 const assert = require('assert')
 const lodash = require('lodash')
 const {
+  ResourceObject,
   ResourceObjectCollection
 } = require('../')
 
@@ -45,6 +46,38 @@ function createSources() {
           test: true
         }
       }
+    ],
+    [{
+        id: 3,
+        test: true,
+        name: 'three',
+        others: [1, 2]
+      },
+      {
+        defaults: {
+          type: 'test-type'
+        },
+        relationships: {
+          'related-test-type': {
+            from: 'others',
+            alias: {
+              id: ''
+            },
+            defaults: {
+              type: 'test-type'
+            }
+          }
+        }
+      },
+      {
+        id: '3',
+        type: 'test-type',
+        attributes: {
+          name: 'three',
+          test: true,
+          others: [1, 2]
+        }
+      }
     ]
   ]
 }
@@ -70,6 +103,37 @@ describe('Static Methods', () => {
       const expected = new ResourceObjectCollection(sources.map(entry => entry[2]))
 
       assert.deepEqual(merged.toJSON(), expected.toJSON())
+    })
+  })
+})
+
+describe('Instance Methods', () => {
+  describe('#toArray()', () => {
+    const source = createSources().map(([source, options]) => new ResourceObject(source, options))
+    const collection = new ResourceObjectCollection(source)
+
+    it('should properly apply pagination', () => {
+      const options = {
+        include: {
+          'related-test-type': {
+            page: {
+              strategy: 'offset',
+              limit: 1
+            }
+          }
+        },
+        page: {
+          strategy: 'offset',
+          offset: 2,
+          limit: 1
+        }
+      }
+
+      console.log(collection.included())
+      console.log(collection.toArray(options))
+      console.dir(collection.toJSON(options), {
+        depth: Infinity
+      })
     })
   })
 })

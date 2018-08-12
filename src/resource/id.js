@@ -25,6 +25,10 @@ export default class ResourceID {
     return this._value && this._value.type
   }
 
+  copy() {
+    return new this.constructor(this._source, this._options)
+  }
+
   toJSON() {
     return postTransformID(this._value, this._options)
   }

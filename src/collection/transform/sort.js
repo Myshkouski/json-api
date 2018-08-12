@@ -1,4 +1,6 @@
 import get from 'lodash/get'
+import isString from 'lodash/isString'
+import isNumber from 'lodash/isNumber'
 
 function _sortByNumberOrCharCodes(vector, a, b) {
   if (a > b) {
@@ -20,7 +22,7 @@ function _parseSortRules(options) {
 }
 
 function sort(data, options, globalScopeCollection) {
-  if (typeof options === 'string') {
+  if (isString(options)) {
     options = options.split(',')
   }
 
@@ -29,7 +31,7 @@ function sort(data, options, globalScopeCollection) {
   }
 
   options = options.map(rule => {
-    if (typeof rule === 'string') {
+    if (isString(rule)) {
       rule = (rule[0] == '-') ? [rule.slice(1), -1] : [rule, 1]
     }
 
@@ -37,7 +39,7 @@ function sort(data, options, globalScopeCollection) {
       throw new TypeError('Sort rules should be an array or string')
     }
 
-    if (typeof rule[1] !== 'number') {
+    if (!isNumber(rule[1])) {
       throw new TypeError('Sort order should be a number')
     }
 
